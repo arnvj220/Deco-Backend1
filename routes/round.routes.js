@@ -1,7 +1,9 @@
 import { Router } from "express"
-// import { authMiddleware } from "../middleware/auth.middleware"
-import { adminOnly } from "../middleware/admin.middleware"
-import { validate } from "../middleware/validate.middleware"
+import { authMiddleware } from "../middleware/auth.middleware.js"
+
+import { validate } from "../middleware/validate.middleware.js"
+
+
 
 import {
   getActiveRound,
@@ -9,15 +11,16 @@ import {
   finishRound,
   createRound,
   activateRound,
-  closeRound
-} from "../controllers/round.controller"
+  closeRound,
+  getAllRoundsAdmin
+} from "../controllers/round.controller.js"
 
 import {
   startRoundSchema,
   finishRoundSchema,
   createRoundSchema,
   roundIdParamSchema
-} from "../schemas/round.schema"
+} from "../schemas/round.schema.js"
 
 const router = Router()
 
@@ -48,7 +51,7 @@ router.post(
 router.post(
   "/",
   authMiddleware,
-  adminOnly,
+  // adminOnly,
   validate(createRoundSchema),
   createRound
 )
@@ -57,7 +60,7 @@ router.post(
 router.patch(
   "/:roundId/activate",
   authMiddleware,
-  adminOnly,
+  // adminOnly,
   validate(roundIdParamSchema),
   activateRound
 )
@@ -66,7 +69,7 @@ router.patch(
 router.patch(
   "/:roundId/close",
   authMiddleware,
-  adminOnly,
+  // adminOnly,
   validate(roundIdParamSchema),
   closeRound
 )
@@ -75,7 +78,7 @@ router.patch(
 router.get(
   "/admin/all",
   authMiddleware,
-  adminOnly,
+  // adminOnly,
   getAllRoundsAdmin
 )
 export default router
