@@ -16,7 +16,7 @@ export const authMiddleware = async (req, res, next) => {
     console.log(token);
     const { data, error } = await supabase.auth.getUser(token);
     console.log(data);
-    if (error || !data?.user || data.user.email !== 'arnavjain92105@gmail.com') { //bande ne khudko alag se daal rakha hai
+    if (error || !data?.user) { 
       return res.status(401).json({
         status: false,
         message: "Invalid or expired token",

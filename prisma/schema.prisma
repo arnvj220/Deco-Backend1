@@ -4,80 +4,70 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  email      String   @unique
+  id         Int           @id @default(autoincrement())
+  email      String        @unique
   name       String
-  role       Role     @default(PARTICIPANT)
+  role       Role          @default(PARTICIPANT)
   avatar_url String?
-  score      Int      @default(0)
-
+  score      Int           @default(0)
   responses  Response[]
   results    RoundResult[]
 }
 
 model Round {
-  id        Int        @id @default(autoincrement())
-  timeLimit Int?       // in seconds
+  id        Int           @id @default(autoincrement())
+  timeLimit Int?
   status    RoundStatus
-
   questions Question[]
-  responses Response[] 
+  responses Response[]
   results   RoundResult[]
 }
 
 model Question {
-  id       Int     @id @default(autoincrement())
-  roundId  Int
-  options  Json?
-  answer   String
-  link     String?
-  reward   Int
-
-  round     Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  id        Int        @id @default(autoincrement())
+  roundId   Int
+  options   Json?
+  answer    String
+  link      String?
+  reward    Int
+  round     Round      @relation(fields: [roundId], references: [id], onDelete: Cascade)
   responses Response[]
 
   @@index([roundId])
 }
 
 model Response {
-  id            Int     @id @default(autoincrement())
-
-  userId        Int
-  questionId    Int
-  roundId       Int
-
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  questionId      Int
+  roundId         Int
   submittedAnswer String
   isCorrect       Boolean
   pointsEarned    Int
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  round           Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  round    Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, questionId])   // user answers question only once
+  @@unique([userId, questionId])
   @@index([roundId])
 }
 
 model RoundResult {
-  id         Int      @id @default(autoincrement())
-
+  id         Int       @id @default(autoincrement())
   userId     Int
   roundId    Int
-
   startTime  DateTime
   endTime    DateTime?
-  totalTime  Int?     // stored in seconds
-  totalScore Int      @default(0)
-  finished   Boolean  @default(false)
+  totalTime  Int?
+  totalScore Int       @default(0)
+  finished   Boolean   @default(false)
+  round      Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, roundId])  // one attempt per round
+  @@unique([userId, roundId])
   @@index([roundId])
 }
 
