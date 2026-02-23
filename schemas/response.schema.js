@@ -1,8 +1,14 @@
 import { z } from "zod"
 
-export const submitAnswerSchema = z.object({
+export const submitResponseSchema = z.object({
   body: z.object({
-    questionId: z.number().int().positive(),
-    answer: z.string().min(1).max(500)
+    questionId: z.number(),
+    submittedAnswer: z.string().min(1)
+  })
+})
+
+export const roundIdParamSchema = z.object({
+  params: z.object({
+    roundId: z.string().regex(/^\d+$/)
   })
 })
