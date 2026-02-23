@@ -1,7 +1,9 @@
 //Here lies the grave of the useless commit made by a certain someone
-import {PrismaClient} from "@prisma/client"
 
-const prisma = new PrismaClient();
+import { prisma } from "../lib/prisma.js"
+
+
+
 
 //Current active round (if any)
 export const getActiveRound = async (req, res) => {

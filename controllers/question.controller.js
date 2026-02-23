@@ -1,4 +1,4 @@
-import { prisma } from "../prisma"
+import {prisma}  from "../lib/prisma.js"
 
 export const createQuestion = async (req, res) => {
   try {

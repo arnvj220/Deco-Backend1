@@ -8,6 +8,7 @@ datasource db {
 
 model User {
   id         Int           @id @default(autoincrement())
+  supabaseId  String   @unique
   email      String        @unique
   name       String
   role       Role          @default(PARTICIPANT)
