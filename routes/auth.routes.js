@@ -9,18 +9,24 @@ import { prisma } from "../lib/prisma.js"
 const router = Router()
 
 router.get("/me", authMiddleware, async (req, res) => {
-    const { id, email } = req.user;
+    const { id: supabaseId, email, user_metadata } = req.user;
+    
     let user = await prisma.user.findUnique({
-        where: { id },
+        where: { supabaseId },
     });
+
+    const name = user_metadata.name;
+    const avatar_url = user_metadata.avatar_url;
 
     if (!user) {
         user = await prisma.user.create({
-            data: { id, email },
+            data: {  name, email, supabaseId, role: "ORGANIZER", avatar_url },
         });
     }
 
-    res.json(user);
+    res.status(200).json({
+        message: "HEHE Ho gaya!"
+    });
 })
 
 export default router
