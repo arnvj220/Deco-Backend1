@@ -1,3 +1,4 @@
+//Here lies the grave of the useless commit made by a certain someone
 import { prisma } from "../prisma"
 
 //Current active round (if any)
