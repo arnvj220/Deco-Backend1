@@ -1,44 +1,55 @@
-import { supabase } from "../config/supabase.js"
+import {prisma}  from "../lib/prisma.js"
 
 export const submitResponse = async (req, res) => {
   const userId = req.user.id
   const { questionId, submittedAnswer } = req.body
 
   try {
-    // get question
-    const { data: question, error: qErr } = await supabase
-      .from("questions")
-      .select("*")
-      .eq("id", questionId)
-      .single()
 
-    if (qErr || !question) {
+    // Get question
+    const question = await prisma.question.findUnique({
+      where: {
+        id: Number(questionId)
+      }
+    })
+
+    if (!question) {
       return res.status(404).json({ message: "Question not found" })
     }
 
     const isCorrect = submittedAnswer === question.answer
     const pointsEarned = isCorrect ? question.reward : 0
 
-    const { error } = await supabase
-      .from("responses")
-      .upsert([
-        {
-          userId,
-          questionId,
-          roundId: question.roundId,
-          submittedAnswer,
-          isCorrect,
-          pointsEarned
+    // Upsert response (because of @@unique([userId, questionId]))
+    await prisma.response.upsert({
+      where: {
+        userId_questionId: {
+          userId: userId,
+          questionId: Number(questionId)
         }
-      ], { onConflict: "userId,questionId" })
+      },
+      update: {
+        submittedAnswer: submittedAnswer,
+        isCorrect: isCorrect,
+        pointsEarned: pointsEarned
+      },
+      create: {
+        userId: userId,
+        questionId: Number(questionId),
+        roundId: question.roundId,
+        submittedAnswer: submittedAnswer,
+        isCorrect: isCorrect,
+        pointsEarned: pointsEarned
+      }
+    })
 
-    if (error) {
-      return res.status(400).json({ message: error.message })
-    }
+    return res.json({
+      message: "Saved",
+      isCorrect,
+      pointsEarned
+    })
 
-    return res.json({ message: "Saved", isCorrect, pointsEarned })
-
-  } catch {
+  } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
 }
@@ -48,13 +59,18 @@ export const getMyResponses = async (req, res) => {
   const userId = req.user.id
   const roundId = Number(req.params.roundId)
 
-  const { data, error } = await supabase
-    .from("responses")
-    .select("*")
-    .eq("userId", userId)
-    .eq("roundId", roundId)
+  try {
 
-  if (error) return res.status(400).json({ message: error.message })
+    const data = await prisma.response.findMany({
+      where: {
+        userId: userId,
+        roundId: roundId
+      }
+    })
 
-  res.json(data)
+    return res.json(data)
+
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" })
+  }
 }

@@ -1,8 +1,8 @@
 import { Router } from "express"
-// import { getLeaderboard } from "../controllers/leaderboard.controller.js"
+import { getLeaderboard } from "../controllers/leaderboard.controller.js"
 
 const router = Router()
 
-// router.get("/:roundId", getLeaderboard)
+router.get("/leaderboard", getLeaderboard)
 
 export default router
