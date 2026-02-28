@@ -8,7 +8,7 @@ datasource db {
 
 model User {
   id         Int           @id @default(autoincrement())
-  supabaseId  String   @unique
+  clerkId  String   @unique
   email      String        @unique
   name       String
   role       Role          @default(PARTICIPANT)
@@ -16,6 +16,11 @@ model User {
   score      Int           @default(0)
   responses  Response[]
   results    RoundResult[]
+}
+
+model AllowedUsers {
+  id    Int    @id @default(autoincrement())
+  email String @unique
 }
 
 model Round {

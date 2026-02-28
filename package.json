@@ -11,6 +11,7 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
+    "@clerk/express": "^1.7.75",
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/adapter-planetscale": "^7.4.1",
     "@prisma/client": "^7.4.1",

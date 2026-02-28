@@ -1,53 +1,60 @@
-// import { supabase } from "../config/supabase.js";
+// middleware/auth.middleware.js
+import { clerkClient } from "@clerk/express";
+import { prisma } from "../lib/prisma.js";
 
+export const requireAllowedEmail = async (req, res, next) => {
+  try {
+    const { userId } = await req.auth();
+    console.log(userId);
+    if (!userId) return res.status(401).json({ message: "Authorization error: no userId" });
 
-// export const authMiddleware = async (req, res, next) => {
-//   try {
-//     const authHeader = req.headers.authorization;
-//     console.log(authHeader);
-//     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-//       return res.status(401).json({
-//         status: false,
-//         message: "No token provided",
-//       });
-//     }
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses[0].emailAddress;
 
-//     const token = authHeader.split(" ")[1];
-//     console.log(token);
-//     const { data, error } = await supabase.auth.getUser(token);
-//     console.log(data);
-//     if (error || !data?.user) { 
-//       return res.status(401).json({
-//         status: false,
-//         message: "Invalid or expired token",
-//       });
-//     }
+    // Check whitelist in Prisma with retry logic
+    let allowed = null;
+    try {
+      allowed = await prisma.allowedUsers.findUnique({ where: { email } });
+    } catch (dbErr) {
+      console.error("Database connection error:", dbErr.code, dbErr.message);
+      
+      // If connection refused, try to reconnect
+      if (dbErr.code === 'ECONNREFUSED' || dbErr.code === 'ENOTFOUND') {
+        console.log("Attempting to reconnect to database...");
+        // Force reconnect
+        await prisma.$disconnect();
+        await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+        try {
+          allowed = await prisma.allowedUsers.findUnique({ where: { email } });
+        } catch (retryErr) {
+          console.error("Database reconnect failed:", retryErr.message);
+          return res.status(503).json({ message: "Database connection error. Please try again." });
+        }
+      } else {
+        throw dbErr;
+      }
+    }
+    
+    if (!allowed) {
+      return res.status(403).json({ message: "Access denied. Email not allowed." });
+    }
 
-//     // Attach user to request
-//     req.user = data.user;
+    // Auto-create user in Prisma if needed
+    let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email,
+          name: clerkUser.fullName || email,
+        },
+      });
+    }
 
-//     next();
-//   } catch (error) {
-//     return res.status(500).json({
-//       status: false,
-//       message: "Authentication failed",
-//       error: error.message,
-//     });
-//   }
-// };
-
-import {supabase} from "../config/supabase.js";
-
-export const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) return res.status(401).json({ message: "No token" });
-
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user)
-    return res.status(401).json({ message: "Invalid token" });
-
-  req.user = data.user;
-  next();
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error("Auth middleware error:", err);
+    res.status(500).json({ message: "Authorization error" });
+  }
 };
