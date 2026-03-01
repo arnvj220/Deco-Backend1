@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { authMiddleware } from "../middleware/auth.middleware.js"
+
 
 import { validate } from "../middleware/validate.middleware.js"
 
@@ -21,37 +21,34 @@ import {
   createRoundSchema,
   roundIdParamSchema
 } from "../schemas/round.schema.js"
+import { requireOrganizer } from "../middleware/auth.middleware.js"
 
 const router = Router()
 
 // Get active round
 router.get(
   "/active",
-  authMiddleware,
   getActiveRound
 )
 
 // Start round
 router.post(
   "/:roundId/start",
-  authMiddleware,
-  validate(startRoundSchema),
+  validate(startRoundSchema, "params"),
   startRound
 )
 
 // Finish round
 router.post(
   "/:roundId/finish",
-  authMiddleware,
-  validate(finishRoundSchema),
+  validate(finishRoundSchema, "params"),
   finishRound
 )
 
 // Create new round (ADMIN)
 router.post(
   "/",
-  authMiddleware,
-  // adminOnly,
+  requireOrganizer,
   validate(createRoundSchema),
   createRound
 )
@@ -59,26 +56,23 @@ router.post(
 // Activate round (ADMIN)
 router.patch(
   "/:roundId/activate",
-  authMiddleware,
-  // adminOnly,
-  validate(roundIdParamSchema),
+  requireOrganizer,
+  validate(roundIdParamSchema, "params"),
   activateRound
 )
 
 // Close round (ADMIN)
 router.patch(
   "/:roundId/close",
-  authMiddleware,
-  // adminOnly,
-  validate(roundIdParamSchema),
+  requireOrganizer,
+  validate(roundIdParamSchema, "params"),
   closeRound
 )
 
 // Get all rounds (ADMIN)
 router.get(
   "/admin/all",
-  authMiddleware,
-  // adminOnly,
+  requireOrganizer,
   getAllRoundsAdmin
 )
 export default router

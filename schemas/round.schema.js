@@ -23,12 +23,7 @@ export const finishRoundSchema = roundIdParamSchema
  * Create Round (ADMIN)
  */
 export const createRoundSchema = z.object({
-  body: z.object({
-    timeLimit: z
-      .number()
-      .int()
-      .positive()
-      .max(86400)
-      .optional()
-  })
+  timeLimit: z
+    .union([z.number().int().positive().max(86400), z.null()])
+    // .optional()
 })

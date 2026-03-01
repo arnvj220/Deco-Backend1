@@ -121,7 +121,9 @@ export const finishRound = async (req, res) => {
 
 // Admin creates a new round (initially UPCOMING)
 export const createRound = async (req, res) => {
-  const { timeLimit } = req.body
+  console.log(req.body);
+  const { timeLimit } = req.body;
+  console.log(timeLimit);
 
   try {
     // Optional safety: ensure no ACTIVE round exists

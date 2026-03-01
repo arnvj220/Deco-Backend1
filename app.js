@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 //import userRouter from './router/user.router.js';
-// import roundRoutes from "./routes/round.routes.js"
+import roundRoutes from "./routes/round.routes.js"
 // import responseRoutes from "./routes/response.routes.js"
 // import questionRoutes from "./routes/question.routes.js"
 // import leaderboardRoutes from "./routes/leaderboard.routes.js"
@@ -23,10 +23,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Global Protection
-// app.use(requireAuth, requireAllowedEmail);
-
-// app.use("/api/round", roundRoutes);
+app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
 // app.use("/api/response", responseRoutes);
 // app.use("api/question",questionRoutes);
 // app.use("/api/leaderboard", leaderboardRoutes);
