@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { authMiddleware } from "../middleware/auth.middleware.js"
+
 import { validate } from "../middleware/validate.middleware.js"
 
 import {
@@ -15,33 +15,33 @@ import {
   questionIdParamSchema,
   roundIdParamSchema
 } from "../schemas/question.schema.js"
+import { requireOrganizer } from "../middleware/auth.middleware.js"
 
 const router = Router()
 
 router.post(
   "/",
-  authMiddleware,
+  requireOrganizer,
   validate(createQuestionSchema),
   createQuestion
 )
 
 router.get(
   "/round/:roundId",
-  authMiddleware,
   validate(roundIdParamSchema),
   getQuestionsByRound
 )
 
 router.patch(
   "/:id",
-  authMiddleware,
+  requireOrganizer,
   validate(updateQuestionSchema),
   updateQuestion
 )
 
 router.delete(
   "/:id",
-  authMiddleware,
+  requireOrganizer,
   validate(questionIdParamSchema),
   deleteQuestion
 )
