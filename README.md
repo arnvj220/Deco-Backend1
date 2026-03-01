@@ -300,12 +300,28 @@ Returns the final leaderboard after all rounds are completed.
 
 ---
 
-# 🔐 Authentication
+## 🔐 Authentication (Clerk Based)
 
-All protected routes require:
+This backend uses Clerk Authentication with an additional server-side whitelist.
 
+All protected routes require a valid Clerk session token sent via:
+
+Authorization: Bearer <Clerk Session Token>
+
+Returns the current authenticated backend user.
+
+### Auth Check Endpoint
+
+-**Endpoint:** `GET /api/auth/me`
+- **Response:**
+```json
+{
+  "message": "Backend connected successfully",
+  "user": {
+    "id": number,
+    "email": string,
+    "name": string,
+    "role": "ORGANIZER" | "PARTICIPANT"
+  }
+}
 ```
-Authorization: Bearer <JWT_TOKEN>
-```
-
-Provided by Supabase authentication.
