@@ -166,7 +166,6 @@ Returns all questions for a specific round.
       "roundId": number,
       "text": string,
       "options": object | null,
-      "answer": string,
       "link": string | null,
       "reward": number
     }
