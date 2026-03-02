@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 //import userRouter from './router/user.router.js';
 import roundRoutes from "./routes/round.routes.js"
 // import responseRoutes from "./routes/response.routes.js"
-// import questionRoutes from "./routes/question.routes.js"
+import questionRoutes from "./routes/question.routes.js"
 // import leaderboardRoutes from "./routes/leaderboard.routes.js"
 import authRoutes from "./routes/auth.routes.js"
 import limiter from "./middleware/ratelimiter.js"
@@ -25,7 +25,7 @@ app.use(cors({
 
 app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
 // app.use("/api/response", responseRoutes);
-// app.use("api/question",questionRoutes);
+app.use("/api/question", requireAuth(), requireAllowedEmail, questionRoutes);
 // app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/auth", requireAuth(), requireAllowedEmail, authRoutes);
 

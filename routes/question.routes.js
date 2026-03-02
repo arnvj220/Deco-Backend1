@@ -22,27 +22,27 @@ const router = Router()
 router.post(
   "/",
   requireOrganizer,
-  validate(createQuestionSchema),
+  validate(createQuestionSchema, "body"),
   createQuestion
 )
 
 router.get(
   "/round/:roundId",
-  validate(roundIdParamSchema),
+  validate(roundIdParamSchema, "params"),
   getQuestionsByRound
 )
 
 router.patch(
   "/:id",
   requireOrganizer,
-  validate(updateQuestionSchema),
+  validate(updateQuestionSchema, "body"),
   updateQuestion
 )
 
 router.delete(
   "/:id",
   requireOrganizer,
-  validate(questionIdParamSchema),
+  validate(questionIdParamSchema, "params"),
   deleteQuestion
 )
 

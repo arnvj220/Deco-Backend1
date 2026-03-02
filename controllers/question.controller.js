@@ -37,13 +37,14 @@ export const createQuestion = async (req, res) => {
 export const getQuestionsByRound = async (req, res) => {
   try {
 
-    const { roundId } = req.params
-
+    const { roundId } = req.params;
     const questions = await prisma.question.findMany({
       where: {
         roundId: Number(roundId)
       }
     })
+
+    delete questions.answer;
 
     res.json({
       status: true,
