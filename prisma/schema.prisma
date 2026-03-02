@@ -25,7 +25,7 @@ model AllowedUsers {
 
 model Round {
   id        Int           @id @default(autoincrement())
-  timeLimit Int?
+  //timeLimit Int?  Hippty Hoppity this line is my property
   status    RoundStatus
   questions Question[]
   responses Response[]
