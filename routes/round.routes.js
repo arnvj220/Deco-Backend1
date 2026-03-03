@@ -10,16 +10,13 @@ import {
   startRound,
   finishRound,
   createRound,
-  activateRound,
-  closeRound,
   getAllRoundsAdmin
 } from "../controllers/round.controller.js"
 
 import {
   startRoundSchema,
   finishRoundSchema,
-  createRoundSchema,
-  roundIdParamSchema
+  createRoundSchema
 } from "../schemas/round.schema.js"
 import { requireOrganizer } from "../middleware/auth.middleware.js"
 
