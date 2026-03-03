@@ -595,3 +595,5 @@ Frontend orchestrates timing. Backend enforces security, scoring, and
 correctness.
 
 ------------------------------------------------------------------------
+`Due to the majority of backend team's request here's an age old question -> 
+Rishi kaha hai?`
