@@ -27,7 +27,6 @@ model Round {
   id        Int           @id @default(autoincrement())
   startedAt   DateTime
   endsAt      DateTime 
-  status    RoundStatus
   questions Question[]
   responses Response[]
   results   RoundResult[]  
@@ -84,8 +83,3 @@ enum Role {
   PARTICIPANT
 }
 
-enum RoundStatus {
-  UPCOMING
-  ACTIVE
-  COMPLETED
-}

@@ -23,7 +23,9 @@ export const finishRoundSchema = roundIdParamSchema
  * Create Round (ADMIN)
  */
 export const createRoundSchema = z.object({
-  timeLimit: z
-    .union([z.number().int().positive().max(86400), z.null()])
-    // .optional()
+  body: z.object({
+    // round timing must be ISO strings that can be parsed by Date
+    startedAt: z.coerce.date(),
+    endsAt: z.coerce.date(),
+  }),
 })
