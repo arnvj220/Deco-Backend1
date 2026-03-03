@@ -19,10 +19,12 @@ export const submitResponse = async (req, res) => {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    if (question.round.status !== "ACTIVE") {
+    const now = new Date()
+
+    if (now < question.round.startedAt || now > question.round.endsAt) {
       return res.status(403).json({
         message: "Round is not active",
-      });
+      })
     }
 
     const isCorrect = submittedAnswer === question.answer;
