@@ -1,4 +1,45 @@
-# Backend API Documentation & Complete Event Flow
+# Backend API Documentation & Complete Event Lifecycle
+
+---
+
+# 🧠 Core Architectural Principle
+
+The system is designed as a **server-time-driven event engine**.
+
+Rounds do not require manual activation or closing.
+
+Every state transition is derived from:
+
+- `startedAt`
+- `endsAt`
+- Current **server time**
+
+Server time is the single source of truth.
+
+Frontend timers are visual only.
+
+Backend enforces all lifecycle constraints.
+
+---
+
+# 🔄 ROUND STATE MODEL
+
+Each round contains:
+
+- `id`
+- `startedAt`
+- `endsAt`
+
+Round state is derived dynamically:
+
+| Condition | Derived State |
+|------------|--------------|
+| currentTime < startedAt | UPCOMING |
+| startedAt ≤ currentTime ≤ endsAt | ACTIVE |
+| currentTime > endsAt | COMPLETED |
+
+State is not stored.
+State is calculated.
 
 ---
 
@@ -7,112 +48,191 @@
 
 ---
 
-### 1. Get Active Round
-Returns the currently active round.
+## 1️⃣ Get Active Round
 
-- **Endpoint:** `GET /api/round/active`
-- **Response:**
-```json
-{ 
-  "id": number, 
-  "startedAt": datetime,
-  "endsAt": datetime, 
-  "status": "UPCOMING" | "ACTIVE" | "COMPLETED" 
-}
+Returns the currently ACTIVE round based on server time.
+
+### Endpoint
+```
+GET /api/round/active
 ```
 
----
-
-### 2. Start Round
-Starts the specified round for the authenticated user.
-
-- **Endpoint:** `POST /api/round/:roundId/start`
-- **URL Params:** `roundId` (number)
-- **Response:**
-```json
-{ "message": "Round started" }
-```
-
----
-
-### 3. Finish Round
-Finishes the specified round for the authenticated user.  
-Calculates total time and total score.
-
-- **Endpoint:** `POST /api/round/:roundId/finish`
-- **URL Params:** `roundId` (number)
-- **Response:**
-```json
-{ "message": "Round finished" }
-```
-
----
-
-### 4. Create Round (Admin)
-Creates a new round.
-
-- **Endpoint:** `POST /api/round`
-- **Request Body:**
+### Success Response (200)
 ```json
 {
-  "startedAt": datetime,
-  "endsAt": datetime
-}
-```
-- **Response:**
-```json
-{ 
-  "message": "Round created successfully", 
-  "round": { 
-    "id": number,
-    "startedAt": datetime,
-    "endsAt": datetime,
-    "status": "UPCOMING" 
-  } 
+  "id": 1,
+  "startedAt": "2026-03-05T10:00:00.000Z",
+  "endsAt": "2026-03-05T10:30:00.000Z"
 }
 ```
 
+### No Active Round (404)
+```json
+{
+  "message": "No active round"
+}
+```
+
+### Backend Logic
+```
+WHERE startedAt <= now AND endsAt >= now
+```
+
+Only one active round is expected at a time.
+
 ---
 
-### 5. Activate Round (Admin)
-Sets the specified round status to `ACTIVE`.
+## 2️⃣ Start Round (Participant)
 
-- **Endpoint:** `PATCH /api/round/:roundId/activate`
-- **URL Params:** `roundId` (number)
-- **Response:**
+Registers that a specific user has started a round.
+
+### Endpoint
+```
+POST /api/round/:roundId/start
+```
+
+### Preconditions
+- Round exists
+- startedAt ≤ now ≤ endsAt
+- User has not started already
+
+### Success Response (200)
 ```json
-{ "message": "Round activated" }
+{
+  "message": "Round started"
+}
+```
+
+### Error Responses
+
+```json
+{ "message": "Round not found" }
+```
+
+```json
+{ "message": "Round not active" }
+```
+
+```json
+{ "message": "Round already started" }
+```
+
+### What Backend Does
+- Creates row in `roundResult`
+- Stores:
+  - userId
+  - roundId
+  - startTime = now
+  - finished = false
+
+---
+
+## 3️⃣ Finish Round (Participant)
+
+Marks the round as completed for the user.
+
+### Endpoint
+```
+POST /api/round/:roundId/finish
+```
+
+### Preconditions
+- User has started round
+- Not already finished
+
+### Time Handling
+
+Effective finish time is:
+
+```
+effectiveEndTime = min(currentTime, round.endsAt)
+```
+
+Total time is:
+
+```
+effectiveEndTime - startTime
+```
+
+This prevents finishing after round ends.
+
+### Success Response (200)
+```json
+{
+  "message": "Round finished"
+}
+```
+
+### Error Responses
+
+```json
+{ "message": "Invalid finish request" }
+```
+
+```json
+{ "message": "Round not found" }
+```
+
+```json
+{ "message": "Round not started yet" }
 ```
 
 ---
 
-### 6. Close Round (Admin)
-Sets the specified round status to `COMPLETED`.
+## 4️⃣ Create Round (Organizer)
 
-- **Endpoint:** `PATCH /api/round/:roundId/close`
-- **URL Params:** `roundId` (number)
-- **Response:**
+Creates a new round.
+
+### Endpoint
+```
+POST /api/round
+```
+
+### Request
 ```json
-{ "message": "Round closed" }
+{
+  "startedAt": "2026-03-05T10:00:00.000Z",
+  "endsAt": "2026-03-05T10:30:00.000Z"
+}
+```
+
+### Validation
+- endsAt > startedAt
+
+### Success (201)
+```json
+{
+  "message": "Round created successfully",
+  "round": {
+    "id": 1,
+    "startedAt": "...",
+    "endsAt": "..."
+  }
+}
 ```
 
 ---
 
-### 7. Get All Rounds (Admin)
-Returns all rounds with summary details.
+## 5️⃣ Get All Rounds (Organizer)
 
-- **Endpoint:** `GET /api/round/admin/all`
-- **Response:**
+Returns rounds with computed state.
+
+### Endpoint
+```
+GET /api/round/admin/all
+```
+
+### Success Response
 ```json
 [
   {
-    "id": number,
-    "startedAt": datetime,
-    "endsAt": datetime,
-    "status": "UPCOMING" | "ACTIVE" | "COMPLETED",
-    "totalQuestions": number,
-    "totalParticipants": number,
-    "finishedCount": number
+    "id": 1,
+    "startedAt": "...",
+    "endsAt": "...",
+    "status": "ACTIVE",
+    "totalQuestions": 10,
+    "totalParticipants": 50,
+    "finishedCount": 30
   }
 ]
 ```
@@ -124,100 +244,35 @@ Returns all rounds with summary details.
 
 ---
 
-### 1. Create Question (Admin)
-Creates a new question for a round.
+## Get Questions By Round
 
-- **Endpoint:** `POST /api/question`
-- **Request Body:**
-```json
-{
-  "roundId": number,
-  "text": string,
-  "options": object | null,
-  "answer": string,
-  "link": string | null,
-  "reward": number
-}
 ```
-- **Response:**
-```json
-{
-  "status": true,
-  "data": {
-    "id": number,
-    "roundId": number,
-    "text": string,
-    "options": object | null,
-    "answer": string,
-    "link": string | null,
-    "reward": number
-  }
-}
+GET /api/question/round/:roundId
 ```
 
----
-
-### 2. Get Questions By Round
-Returns all questions for a specific round.
-
-- **Endpoint:** `GET /api/question/round/:roundId`
-- **URL Params:** `roundId` (number)
-- **Response:**
+### Response
 ```json
 {
   "status": true,
   "data": [
     {
-      "id": number,
-      "roundId": number,
-      "text": string,
-      "options": object | null,
-      "link": string | null,
-      "reward": number
+      "id": 1,
+      "roundId": 1,
+      "text": "Question text",
+      "options": null,
+      "link": null,
+      "reward": 10
     }
   ]
 }
 ```
 
----
+Questions remain accessible only while:
 
-### 3. Update Question (Admin)
-Updates question details.
+- currentTime ≤ endsAt
+- user not finished
 
-- **Endpoint:** `PATCH /api/question/:id`
-- **URL Params:** `id` (number)
-- **Request Body:** Any of:
-```json
-{
-  "text": string,
-  "options": object,
-  "answer": string,
-  "link": string,
-  "reward": number
-}
-```
-- **Response:**
-```json
-{
-  "status": true,
-  "data": { ...updatedQuestion }
-}
-```
-
----
-
-### 4. Delete Question (Admin)
-Deletes a question.
-
-- **Endpoint:** `DELETE /api/question/:id`
-- **URL Params:** `id` (number)
-- **Response:**
-```json
-{
-  "status": true,
-  "message": "Question deleted"
-}
-```
+Backend must revalidate time before serving.
 
 ---
 
@@ -226,78 +281,74 @@ Deletes a question.
 
 ---
 
-### 1. Submit Answer
-Submits or updates an answer for a question.
+## Submit Answer
 
-- **Endpoint:** `POST /api/response`
-- **Request Body:**
+```
+POST /api/response
+```
+
+### Request
 ```json
 {
-  "questionId": number,
-  "submittedAnswer": string
+  "questionId": 1,
+  "submittedAnswer": "A"
 }
 ```
-- **Response:**
+
+### Backend Validation
+- Round is ACTIVE
+- User has started
+- currentTime ≤ endsAt
+- User not finished
+
+### Success Response
 ```json
 {
   "message": "Saved",
-  "isCorrect": boolean,
-  "pointsEarned": number
+  "isCorrect": true,
+  "pointsEarned": 10
 }
 ```
 
----
-
-### 2. Get User Responses
-Returns all responses submitted by the authenticated user for a specific round.
-
-- **Endpoint:** `GET /api/response/:roundId/me`
-- **URL Params:** `roundId` (number)
-- **Response:**
+If after endsAt:
 ```json
-[
-  {
-    "id": number,
-    "questionId": number,
-    "submittedAnswer": string,
-    "isCorrect": boolean,
-    "pointsEarned": number
-  }
-]
+{ "message": "Round already ended" }
 ```
 
 ---
 
 # 🏆 LEADERBOARD ROUTES
-**Base Path:** `/api`
 
 ---
 
-### 1. Get Final Leaderboard
-Returns the final leaderboard after all rounds are completed.
+## Get Final Leaderboard
 
-- Includes only:
-  - Rounds with status `COMPLETED`
-  - Users who finished rounds
-- Ranking Priority:
-  1. Higher total points
-  2. Lower total time
-  3. Ties share the same rank (competition ranking)
+```
+GET /api/leaderboard
+```
 
-- **Endpoint:** `GET /api/leaderboard`
-- **Response:**
+Includes:
+- Only rounds where currentTime > endsAt
+- Only users who finished
+
+Ranking Priority:
+1. Higher totalPoints
+2. Lower totalTime
+3. Competition ranking
+
+### Success Response
 ```json
 {
   "status": true,
   "data": [
     {
-      "rank": number,
-      "userId": number,
-      "name": string,
-      "email": string,
-      "avatar_url": string | null,
-      "totalPoints": number,
-      "totalTime": number
+      "rank": 1,
+      "userId": 12,
+      "name": "User A",
+      "email": "user@email.com",
+      "avatar_url": null,
+      "totalPoints": 100,
+      "totalTime": 540
     }
   ]
 }
@@ -305,295 +356,144 @@ Returns the final leaderboard after all rounds are completed.
 
 ---
 
-## 🔐 Authentication (Clerk Based)
+# 🔁 COMPLETE EVENT FLOW (DETAILED)
 
-This backend uses Clerk Authentication with an additional server-side whitelist.
+There are two synchronized but independent systems:
 
-All protected routes require a valid Clerk session token sent via:
+---
 
-Authorization: Bearer <Clerk Session Token>
+# 🏛 GLOBAL ROUND LIFECYCLE (Server Controlled)
 
-Returns the current authenticated backend user.
+1. Organizer creates round.
+2. Until startedAt → Round is UPCOMING.
+3. At startedAt → Automatically becomes ACTIVE.
+4. At endsAt → Automatically becomes COMPLETED.
+5. No API call required for state change.
+6. Server determines state at every request.
 
-### Auth Check Endpoint
+No frontend trigger required.
 
--**Endpoint:** `GET /api/auth/me`
-- **Response:**
-```json
-{
-  "message": "Backend connected successfully",
-  "user": {
-    "id": number,
-    "email": string,
-    "name": string,
-    "role": "ORGANIZER" | "PARTICIPANT"
-  }
-}
-```
+---
 
+# 👤 USER PARTICIPATION LIFECYCLE
 
-------------------------------------------------------------------------
-
-# 🧠 Event Flow Explanation (How The Platform Works)
-
-This document explains the complete lifecycle of the event, clearly
-separating:
-
-1.  Global Round Lifecycle (Organizer controlled)
-2.  User Participation Lifecycle (Participant controlled)
-
-⚠️ All activation, deactivation, start, and finish calls are
-AUTOMATICALLY triggered by frontend timers --- not manually clicked.
-
-------------------------------------------------------------------------
-
-# 🔄 High-Level Event Structure
-
-Each round has:
-
--   `startedAt`
--   `endsAt`
--   `status` → UPCOMING \| ACTIVE \| COMPLETED
-
-There are TWO separate flows happening in parallel:
-
-------------------------------------------------------------------------
-
-# 🛠 1️⃣ Global Round Lifecycle (Organizer Frontend -- Automatic)
-
-This controls the global status of a round.
-
-These APIs are ONLY accessible to ORGANIZER.
-
-## Automatic Activation
-
-At exact `startedAt`, the ORGANIZER frontend must automatically call:
-
-PATCH /api/round/:roundId/activate
-
-This: - Sets round status to ACTIVE - Makes it globally available
-
-No participant can trigger this.
-
-------------------------------------------------------------------------
-
-## Automatic Deactivation
-
-At exact `endsAt`, the ORGANIZER frontend must automatically call:
-
-PATCH /api/round/:roundId/close
-
-This: - Sets round status to COMPLETED - Locks the round globally -
-Makes it eligible for leaderboard inclusion
-
-This must also be automated using frontend timers (setTimeout /
-scheduler).
-
-------------------------------------------------------------------------
-
-# 👤 2️⃣ User Participation Lifecycle (Participant Frontend -- Automatic)
-
-This controls individual user participation.
-
-These APIs DO NOT change global round status.
-
-------------------------------------------------------------------------
-
-## Step 1: Website Loads
+## Step 1: Page Load
 
 Frontend calls:
-
+```
 GET /api/round/active
+```
 
-Backend returns:
+If 200:
+- Store startedAt
+- Store endsAt
+- Start countdown UI
 
-{ "id": 1, "startedAt": "2026-03-05T10:00:00.000Z", "endsAt":
-"2026-03-05T10:30:00.000Z", "status": "UPCOMING" \| "ACTIVE" }
+If 404:
+- Show waiting state
+- Poll periodically
 
-Frontend stores timestamps and prepares timers.
+---
 
-------------------------------------------------------------------------
+## Step 2: User Auto-Start
 
-## Step 2: Automatic User Start
+If:
+- Active round exists
+- User has not started
 
-When:
-
--   Round status is ACTIVE
--   AND user is eligible
--   AND user has not started yet
-
-The participant frontend must automatically call:
-
+Frontend calls:
+```
 POST /api/round/:roundId/start
+```
 
-This registers that THIS user has started.
+Backend validates time window.
 
-This does NOT activate the round globally.
+---
 
-Frontend then: - Starts user-specific countdown - Fetches questions
+## Step 3: Question Interaction
 
-------------------------------------------------------------------------
-
-## Step 3: Question Flow
-
+Frontend fetches:
+```
 GET /api/question/round/:roundId
+```
 
-Questions remain accessible until: - User finishes - Or global round
-ends
-
-------------------------------------------------------------------------
-
-## Step 4: Response Flow
-
+Answers submitted via:
+```
 POST /api/response
+```
 
-Backend: - Saves answer - Evaluates correctness - Returns: -
-`isCorrect` - `pointsEarned`
+Each submission revalidated server-side.
 
-Users can update answers until they finish.
+---
 
-------------------------------------------------------------------------
+## Step 4: Auto Finish
 
-## Step 5: Automatic User Finish
+At earliest of:
+- User clicks finish
+- currentTime ≥ endsAt
 
-At the earliest of:
-
--   User manually clicks finish
--   OR global `endsAt` is reached
-
-Frontend must automatically call:
-
+Frontend calls:
+```
 POST /api/round/:roundId/finish
+```
 
-This: - Calculates total time - Calculates total score - Marks THIS user
-as finished
+Backend caps time automatically.
 
-This does NOT close the round globally.
+---
 
-Effective time calculation:
+# 🔄 REFRESH HANDLING
 
-min(currentTime, endsAt) - userStartTime
+On refresh:
 
-Backend enforces final time cap.
+Frontend must:
+1. Re-fetch active round
+2. Check if user already started
+3. Recompute remaining time:
+   ```
+   endsAt - currentServerTime
+   ```
 
-------------------------------------------------------------------------
+Never trust client clock.
 
-# ⏳ Early Finish Behavior
+---
 
-If user finishes before global `endsAt`:
+# ⚠️ EDGE CASES HANDLED
 
-Frontend must: - Show waiting screen - Wait until round closes
-globally - Automatically fetch next active round at end time
+- User tries to start after endsAt → Rejected
+- User tries to submit after finish → Rejected
+- User tries to submit after endsAt → Rejected
+- User refreshes at 1 second left → Time enforced by server
+- User finishes after endsAt → Time capped automatically
 
-GET /api/round/active
+---
 
-If next round exists → repeat full cycle.
-
-------------------------------------------------------------------------
-
-# 🔁 Complete Automated Cycle
-
-## Organizer Side
-
-Create round\
-→ Automatically activate at `startedAt`\
-→ Automatically close at `endsAt`\
-→ Repeat
-
-## Participant Side
-
-Fetch active round\
-→ Automatically start when eligible\
-→ Play\
-→ Automatically finish at end\
-→ Wait\
-→ Fetch next round\
-→ Repeat
-
-Everything is driven by frontend timers.
-
-------------------------------------------------------------------------
-
-# 🏆 Leaderboard Logic
-
-GET /api/leaderboard
-
-Includes only:
-
--   Rounds with status COMPLETED
--   Users who finished rounds
-
-Ranking priority:
-
-1.  Higher total points
-2.  Lower total time
-3.  Competition ranking (ties share rank)
-
-------------------------------------------------------------------------
-
-# 🔐 Authentication (Clerk Based)
+# 🔐 AUTHENTICATION
 
 All protected routes require:
 
-Authorization: Bearer `<Clerk Session Token>`{=html}
+```
+Authorization: Bearer <Clerk Session Token>
+```
 
-Flow:
+---
 
-1.  User signs in via Clerk
-2.  Clerk provides session token
-3.  Frontend sends token with every request
-4.  Backend verifies and attaches user
+# 🚀 FINAL SYSTEM CHARACTERISTICS
 
-------------------------------------------------------------------------
+- Fully automatic lifecycle
+- No manual state transitions
+- Server-enforced timing
+- Race-condition resistant
+- Refresh-safe
+- Scalable
+- Deterministic
+- Production ready
 
-# 👤 Role-Based Access Control
+---
 
-Users have roles:
-
--   ORGANIZER
--   PARTICIPANT
-
-ORGANIZER can:
-
--   Create rounds
--   Activate rounds
--   Close rounds
--   Manage questions
-
-PARTICIPANT can:
-
--   Start round (user-level)
--   Finish round (user-level)
--   Submit responses
--   View leaderboard
-
-Participants CANNOT activate or close rounds.
-
-Backend strictly enforces this.
-
-------------------------------------------------------------------------
-
-# 🛡️ Implementation Guarantees
-
--   All lifecycle transitions are automated
--   Organizer frontend automates global state changes
--   Participant frontend automates user-level state changes
--   Backend enforces timestamps using `startedAt` and `endsAt`
--   Refresh-safe: frontend must re-fetch state and restore timers
--   Frontend timers are visual only; backend is final authority
-
-------------------------------------------------------------------------
-
-# 🚀 Final Architecture Summary
-
-There are two independent but synchronized systems:
-
-1.  Global Round Control (Organizer -- Automatic)
-2.  User Participation Control (Participant -- Automatic)
-
-Frontend orchestrates timing. Backend enforces security, scoring, and
-correctness.
-
-------------------------------------------------------------------------
-`Due to the majority of backend team's request here's an age old question -> 
+`Due to the majority of backend team's request here's an age old question ->  
 Rishi kaha hai?`
+
+Answer:
+Server time ke andar.
+State machine ke beech.
+Manual activation se upar uth chuka hai.

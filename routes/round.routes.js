@@ -53,21 +53,6 @@ router.post(
   createRound
 )
 
-// Activate round (ADMIN)
-router.patch(
-  "/:roundId/activate",
-  requireOrganizer,
-  validate(roundIdParamSchema, "params"),
-  activateRound
-)
-
-// Close round (ADMIN)
-router.patch(
-  "/:roundId/close",
-  requireOrganizer,
-  validate(roundIdParamSchema, "params"),
-  closeRound
-)
 
 // Get all rounds (ADMIN)
 router.get(
