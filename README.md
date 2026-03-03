@@ -1,4 +1,4 @@
-# Backend API Documentation (For Frontend Integration)
+# Backend API Documentation
 
 ---
 
@@ -15,7 +15,8 @@ Returns the currently active round.
 ```json
 { 
   "id": number, 
-  "timeLimit": number | null, 
+  "startedAt": datetime,
+  "endsAt": datetime, 
   "status": "UPCOMING" | "ACTIVE" | "COMPLETED" 
 }
 ```
@@ -53,15 +54,19 @@ Creates a new round.
 - **Endpoint:** `POST /api/round`
 - **Request Body:**
 ```json
-{ "timeLimit": number (optional) }
+{
+  "startedAt": datetime,
+  "endsAt": datetime
+}
 ```
 - **Response:**
 ```json
 { 
   "message": "Round created successfully", 
   "round": { 
-    "id": number, 
-    "timeLimit": number | null, 
+    "id": number,
+    "startedAt": datetime,
+    "endsAt": datetime,
     "status": "UPCOMING" 
   } 
 }
@@ -102,7 +107,8 @@ Returns all rounds with summary details.
 [
   {
     "id": number,
-    "timeLimit": number | null,
+    "startedAt": datetime,
+    "endsAt": datetime,
     "status": "UPCOMING" | "ACTIVE" | "COMPLETED",
     "totalQuestions": number,
     "totalParticipants": number,
@@ -324,3 +330,141 @@ Returns the current authenticated backend user.
   }
 }
 ```
+
+------------------------------------------------------------------------
+
+
+# 🧠 Event Flow Explanation (How The Platform Works)
+
+This section explains the complete lifecycle of the event, including
+frontend responsibilities, backend responsibilities, authentication
+flow, and how rounds repeat automatically.
+
+------------------------------------------------------------------------
+
+# 🔄 High-Level Event Cycle
+
+The event runs in rounds. Each round has:
+
+-   `startedAt`
+-   `endsAt`
+-   `status` → UPCOMING \| ACTIVE \| COMPLETED
+
+The frontend controls the timing logic using these timestamps.
+
+------------------------------------------------------------------------
+
+# 🟢 Step 1: Website Loads → Fetch Active Round
+
+When the website loads:
+
+1.  Frontend calls: GET /api/round/active
+
+2.  Backend returns: { "id": 1, "startedAt": "2026-03-05T10:00:00.000Z",
+    "endsAt": "2026-03-05T10:30:00.000Z", "status": "UPCOMING" \|
+    "ACTIVE" }
+
+3.  Frontend:
+
+    -   Stores `startedAt`
+    -   Stores `endsAt`
+    -   Starts countdown timers accordingly
+
+------------------------------------------------------------------------
+
+# ⏳ Step 2: Automatically Start & End Round (Frontend Responsibility)
+
+At `startedAt`: POST /api/round/:roundId/start
+
+At `endsAt`: POST /api/round/:roundId/finish
+
+The backend does NOT auto-trigger this. The frontend must schedule these
+calls.
+
+------------------------------------------------------------------------
+
+# 🏃 Step 3: User Participation Flow
+
+-   User clicks Start → call start API
+-   Frontend starts visible countdown timer
+-   User submits answers via POST /api/response
+-   User can manually finish early via finish API
+
+Effective time calculation: min(currentTime, endsAt) - userStartTime
+
+------------------------------------------------------------------------
+
+# 🟡 Step 4: Early Finish → Waiting Screen
+
+If user finishes early: - Show waiting screen - Wait until `endsAt` -
+Fetch next round using GET /api/round/active - Restart cycle if next
+round exists
+
+------------------------------------------------------------------------
+
+# 🔁 Multi-Round Cycle
+
+Fetch active round → Wait for start → Call start → Play → Wait for end →
+Call finish → Fetch next round → Repeat
+
+------------------------------------------------------------------------
+
+# ❓ Question Flow
+
+GET /api/question/round/:roundId
+
+Questions remain accessible until round ends or user finishes.
+
+------------------------------------------------------------------------
+
+# 📝 Response Flow
+
+POST /api/response
+
+Backend: - Saves answer - Evaluates correctness - Returns `isCorrect`
+and `pointsEarned`
+
+------------------------------------------------------------------------
+
+# 🏆 Leaderboard Logic
+
+GET /api/leaderboard
+
+Ranking priority: 1. Higher total points 2. Lower total time 3.
+Competition ranking (ties share rank)
+
+Only completed rounds and users who finished are included.
+
+------------------------------------------------------------------------
+
+# 🔐 Authentication (Clerk Based)
+
+1.  User signs in via Clerk.
+2.  Clerk provides session token.
+3.  Frontend sends:
+
+Authorization: Bearer `<Clerk Session Token>`{=html}
+
+4.  Backend verifies token and attaches user.
+
+User roles: - ORGANIZER - PARTICIPANT
+
+Auth check endpoint: GET /api/auth/me
+
+------------------------------------------------------------------------
+
+# 🛡️ Implementation Notes
+
+-   Frontend controls timing
+-   Backend calculates final time
+-   Backend enforces `endsAt`
+-   Handle refresh by re-fetching active round and responses
+-   Always treat `endsAt` as final authority
+
+------------------------------------------------------------------------
+
+# 🚀 Summary
+
+Frontend orchestrates timing and lifecycle. Backend enforces
+correctness, scoring, and security.
+
