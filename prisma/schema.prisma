@@ -25,14 +25,12 @@ model AllowedUsers {
 
 model Round {
   id        Int           @id @default(autoincrement())
-  // Hippty Hoppity Bye Bye Rt's property
   status    RoundStatus
   questions Question[]
   responses Response[]
   results   RoundResult[]
-  startedAt   DateTime?   //  <--|
-  endsAt      DateTime?   //  <--|--- That Person's property 
-  durationSec Int         //  <--|
+  startedAt   DateTime?   
+  endsAt      DateTime?   
 }
 
 model Question {
