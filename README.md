@@ -1,4 +1,4 @@
-# Backend API Documentation
+# Backend API Documentation & Complete Event Flow
 
 ---
 
@@ -331,98 +331,186 @@ Returns the current authenticated backend user.
 }
 ```
 
-------------------------------------------------------------------------
 
+------------------------------------------------------------------------
 
 # 🧠 Event Flow Explanation (How The Platform Works)
 
-This section explains the complete lifecycle of the event, including
-frontend responsibilities, backend responsibilities, authentication
-flow, and how rounds repeat automatically.
+This document explains the complete lifecycle of the event, clearly
+separating:
+
+1.  Global Round Lifecycle (Organizer controlled)
+2.  User Participation Lifecycle (Participant controlled)
+
+⚠️ All activation, deactivation, start, and finish calls are
+AUTOMATICALLY triggered by frontend timers --- not manually clicked.
 
 ------------------------------------------------------------------------
 
-# 🔄 High-Level Event Cycle
+# 🔄 High-Level Event Structure
 
-The event runs in rounds. Each round has:
+Each round has:
 
 -   `startedAt`
 -   `endsAt`
 -   `status` → UPCOMING \| ACTIVE \| COMPLETED
 
-The frontend controls the timing logic using these timestamps.
+There are TWO separate flows happening in parallel:
 
 ------------------------------------------------------------------------
 
-# 🟢 Step 1: Website Loads → Fetch Active Round
+# 🛠 1️⃣ Global Round Lifecycle (Organizer Frontend -- Automatic)
 
-When the website loads:
+This controls the global status of a round.
 
-1.  Frontend calls: GET /api/round/active
+These APIs are ONLY accessible to ORGANIZER.
 
-2.  Backend returns: { "id": 1, "startedAt": "2026-03-05T10:00:00.000Z",
-    "endsAt": "2026-03-05T10:30:00.000Z", "status": "UPCOMING" \|
-    "ACTIVE" }
+## Automatic Activation
 
-3.  Frontend:
+At exact `startedAt`, the ORGANIZER frontend must automatically call:
 
-    -   Stores `startedAt`
-    -   Stores `endsAt`
-    -   Starts countdown timers accordingly
+PATCH /api/round/:roundId/activate
 
-------------------------------------------------------------------------
+This: - Sets round status to ACTIVE - Makes it globally available
 
-# ⏳ Step 2: Automatically Start & End Round (Frontend Responsibility)
-
-At `startedAt`: POST /api/round/:roundId/start
-
-At `endsAt`: POST /api/round/:roundId/finish
-
-The backend does NOT auto-trigger this. The frontend must schedule these
-calls.
+No participant can trigger this.
 
 ------------------------------------------------------------------------
 
-# 🏃 Step 3: User Participation Flow
+## Automatic Deactivation
 
--   User clicks Start → call start API
--   Frontend starts visible countdown timer
--   User submits answers via POST /api/response
--   User can manually finish early via finish API
+At exact `endsAt`, the ORGANIZER frontend must automatically call:
 
-Effective time calculation: min(currentTime, endsAt) - userStartTime
+PATCH /api/round/:roundId/close
 
-------------------------------------------------------------------------
+This: - Sets round status to COMPLETED - Locks the round globally -
+Makes it eligible for leaderboard inclusion
 
-# 🟡 Step 4: Early Finish → Waiting Screen
-
-If user finishes early: - Show waiting screen - Wait until `endsAt` -
-Fetch next round using GET /api/round/active - Restart cycle if next
-round exists
+This must also be automated using frontend timers (setTimeout /
+scheduler).
 
 ------------------------------------------------------------------------
 
-# 🔁 Multi-Round Cycle
+# 👤 2️⃣ User Participation Lifecycle (Participant Frontend -- Automatic)
 
-Fetch active round → Wait for start → Call start → Play → Wait for end →
-Call finish → Fetch next round → Repeat
+This controls individual user participation.
+
+These APIs DO NOT change global round status.
 
 ------------------------------------------------------------------------
 
-# ❓ Question Flow
+## Step 1: Website Loads
+
+Frontend calls:
+
+GET /api/round/active
+
+Backend returns:
+
+{ "id": 1, "startedAt": "2026-03-05T10:00:00.000Z", "endsAt":
+"2026-03-05T10:30:00.000Z", "status": "UPCOMING" \| "ACTIVE" }
+
+Frontend stores timestamps and prepares timers.
+
+------------------------------------------------------------------------
+
+## Step 2: Automatic User Start
+
+When:
+
+-   Round status is ACTIVE
+-   AND user is eligible
+-   AND user has not started yet
+
+The participant frontend must automatically call:
+
+POST /api/round/:roundId/start
+
+This registers that THIS user has started.
+
+This does NOT activate the round globally.
+
+Frontend then: - Starts user-specific countdown - Fetches questions
+
+------------------------------------------------------------------------
+
+## Step 3: Question Flow
 
 GET /api/question/round/:roundId
 
-Questions remain accessible until round ends or user finishes.
+Questions remain accessible until: - User finishes - Or global round
+ends
 
 ------------------------------------------------------------------------
 
-# 📝 Response Flow
+## Step 4: Response Flow
 
 POST /api/response
 
-Backend: - Saves answer - Evaluates correctness - Returns `isCorrect`
-and `pointsEarned`
+Backend: - Saves answer - Evaluates correctness - Returns: -
+`isCorrect` - `pointsEarned`
+
+Users can update answers until they finish.
+
+------------------------------------------------------------------------
+
+## Step 5: Automatic User Finish
+
+At the earliest of:
+
+-   User manually clicks finish
+-   OR global `endsAt` is reached
+
+Frontend must automatically call:
+
+POST /api/round/:roundId/finish
+
+This: - Calculates total time - Calculates total score - Marks THIS user
+as finished
+
+This does NOT close the round globally.
+
+Effective time calculation:
+
+min(currentTime, endsAt) - userStartTime
+
+Backend enforces final time cap.
+
+------------------------------------------------------------------------
+
+# ⏳ Early Finish Behavior
+
+If user finishes before global `endsAt`:
+
+Frontend must: - Show waiting screen - Wait until round closes
+globally - Automatically fetch next active round at end time
+
+GET /api/round/active
+
+If next round exists → repeat full cycle.
+
+------------------------------------------------------------------------
+
+# 🔁 Complete Automated Cycle
+
+## Organizer Side
+
+Create round\
+→ Automatically activate at `startedAt`\
+→ Automatically close at `endsAt`\
+→ Repeat
+
+## Participant Side
+
+Fetch active round\
+→ Automatically start when eligible\
+→ Play\
+→ Automatically finish at end\
+→ Wait\
+→ Fetch next round\
+→ Repeat
+
+Everything is driven by frontend timers.
 
 ------------------------------------------------------------------------
 
@@ -430,41 +518,80 @@ and `pointsEarned`
 
 GET /api/leaderboard
 
-Ranking priority: 1. Higher total points 2. Lower total time 3.
-Competition ranking (ties share rank)
+Includes only:
 
-Only completed rounds and users who finished are included.
+-   Rounds with status COMPLETED
+-   Users who finished rounds
+
+Ranking priority:
+
+1.  Higher total points
+2.  Lower total time
+3.  Competition ranking (ties share rank)
 
 ------------------------------------------------------------------------
 
 # 🔐 Authentication (Clerk Based)
 
-1.  User signs in via Clerk.
-2.  Clerk provides session token.
-3.  Frontend sends:
+All protected routes require:
 
 Authorization: Bearer `<Clerk Session Token>`{=html}
 
-4.  Backend verifies token and attaches user.
+Flow:
 
-User roles: - ORGANIZER - PARTICIPANT
-
-Auth check endpoint: GET /api/auth/me
-
-------------------------------------------------------------------------
-
-# 🛡️ Implementation Notes
-
--   Frontend controls timing
--   Backend calculates final time
--   Backend enforces `endsAt`
--   Handle refresh by re-fetching active round and responses
--   Always treat `endsAt` as final authority
+1.  User signs in via Clerk
+2.  Clerk provides session token
+3.  Frontend sends token with every request
+4.  Backend verifies and attaches user
 
 ------------------------------------------------------------------------
 
-# 🚀 Summary
+# 👤 Role-Based Access Control
 
-Frontend orchestrates timing and lifecycle. Backend enforces
-correctness, scoring, and security.
+Users have roles:
 
+-   ORGANIZER
+-   PARTICIPANT
+
+ORGANIZER can:
+
+-   Create rounds
+-   Activate rounds
+-   Close rounds
+-   Manage questions
+
+PARTICIPANT can:
+
+-   Start round (user-level)
+-   Finish round (user-level)
+-   Submit responses
+-   View leaderboard
+
+Participants CANNOT activate or close rounds.
+
+Backend strictly enforces this.
+
+------------------------------------------------------------------------
+
+# 🛡️ Implementation Guarantees
+
+-   All lifecycle transitions are automated
+-   Organizer frontend automates global state changes
+-   Participant frontend automates user-level state changes
+-   Backend enforces timestamps using `startedAt` and `endsAt`
+-   Refresh-safe: frontend must re-fetch state and restore timers
+-   Frontend timers are visual only; backend is final authority
+
+------------------------------------------------------------------------
+
+# 🚀 Final Architecture Summary
+
+There are two independent but synchronized systems:
+
+1.  Global Round Control (Organizer -- Automatic)
+2.  User Participation Control (Participant -- Automatic)
+
+Frontend orchestrates timing. Backend enforces security, scoring, and
+correctness.
+
+------------------------------------------------------------------------
