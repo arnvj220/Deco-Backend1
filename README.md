@@ -492,8 +492,3 @@ Authorization: Bearer <Clerk Session Token>
 
 `Due to the majority of backend team's request here's an age old question ->  
 Rishi kaha hai?`
-
-Answer:
-Server time ke andar.
-State machine ke beech.
-Manual activation se upar uth chuka hai.
