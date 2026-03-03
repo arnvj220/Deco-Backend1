@@ -46,7 +46,7 @@ router.post(
 router.post(
   "/",
   requireOrganizer,
-  validate(createRoundSchema),
+  validate(createRoundSchema, "body"),
   createRound
 )
 
