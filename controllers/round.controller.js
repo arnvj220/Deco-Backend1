@@ -1,8 +1,4 @@
-//Here lies the grave of the useless commit made by a certain someone
-
 import { prisma } from "../lib/prisma.js"
-
-
 
 
 //Current active round (if any)
@@ -121,23 +117,14 @@ export const finishRound = async (req, res) => {
 
 // Admin creates a new round (initially UPCOMING)
 export const createRound = async (req, res) => {
-  const { timeLimit } = req.body;
+  const { startedAt } = req.body;
+  const { endsAt } = req.body;
 
   try {
-    // Optional safety: ensure no ACTIVE round exists
-    const activeRound = await prisma.round.findFirst({
-      where: { status: "ACTIVE" }
-    })
-
-    if (activeRound) {
-      return res.status(400).json({
-        message: "Cannot create new round while another round is ACTIVE"
-      })
-    }
-
     const round = await prisma.round.create({
       data: {
-        timeLimit: timeLimit ?? null,
+        startedAt: new Date(startedAt),
+        endsAt: new Date(endsAt),
         status: "UPCOMING"
       }
     })
@@ -217,7 +204,8 @@ export const getAllRoundsAdmin = async (req, res) => {
 
       return {
         id: round.id,
-        timeLimit: round.timeLimit,
+        startedAt: round.startedAt,
+        endsAt: round.endsAt,
         status: round.status,
         totalQuestions: round.questions.length,
         totalParticipants,

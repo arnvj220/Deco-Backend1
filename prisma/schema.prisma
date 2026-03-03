@@ -25,12 +25,12 @@ model AllowedUsers {
 
 model Round {
   id        Int           @id @default(autoincrement())
+  startedAt   DateTime
+  endsAt      DateTime 
   status    RoundStatus
   questions Question[]
   responses Response[]
-  results   RoundResult[]
-  startedAt   DateTime?   
-  endsAt      DateTime?   
+  results   RoundResult[]  
 }
 
 model Question {
