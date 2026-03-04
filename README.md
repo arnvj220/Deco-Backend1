@@ -236,21 +236,189 @@ GET /api/round/admin/all
   }
 ]
 ```
+---
+## 6️⃣ Get User Round Status
 
+Returns the participation status of the authenticated user for a specific round.
+
+This endpoint allows the frontend to determine whether the user has already
+started or finished the round. It is primarily used for **refresh recovery**
+and **game state restoration**.
+
+---
+
+### Endpoint
+
+```
+GET /api/round/:id/status
+```
+
+---
+
+### Success Response (200)
+
+If the user **has not started the round**:
+
+```json
+{
+  "started": false,
+  "finished": false
+}
+```
+
+If the user **has started but not finished**:
+
+```json
+{
+  "started": true,
+  "finished": false
+}
+```
+
+If the user **has already finished**:
+
+```json
+{
+  "started": true,
+  "finished": true
+}
+```
+
+---
+
+
+### Typical Frontend Usage
+
+This endpoint is used to determine what screen the user should see.
+
+Example page load flow:
+
+```
+GET /api/round/active
+GET /api/round/:roundId/status
+```
+
+
+### Refresh Recovery Example
+
+If a user refreshes their browser during a round:
+
+1. Frontend checks the active round
+2. Frontend calls this endpoint
+3. If `started: true`, the frontend restores the round state
+
+Example recovery flow:
+
+```
+GET /api/round/active
+GET /api/round/:roundId/status
+GET /api/question/round/:roundId
+GET /api/response/:roundId/me
+```
 ---
 
 # ❓ QUESTION ROUTES
 **Base Path:** `/api/question`
 
+These endpoints allow organizers to manage questions for rounds and allow
+participants to retrieve questions during gameplay.
+
 ---
 
-## Get Questions By Round
+# 1️⃣ Create Question (Organizer)
 
+Creates a new question for a specific round.
+
+### Endpoint
+```
+POST /api/question
+```
+
+### Authentication
+Required. Organizer role only.
+
+```
+Authorization: Bearer <Clerk Session Token>
+```
+
+### Request Body
+```json
+{
+  "roundId": 1,
+  "text": "What is the capital of France?",
+  "options": {
+    "A": "Paris",
+    "B": "Berlin",
+    "C": "Madrid",
+    "D": "Rome"
+  },
+  "answer": "A",
+  "link": null,
+  "reward": 10
+}
+```
+
+---
+
+### Success Response (201)
+
+```json
+{
+  "status": true,
+  "data": {
+    "id": 12,
+    "roundId": 1,
+    "text": "What is the capital of France?",
+    "options": {
+      "A": "Paris",
+      "B": "Berlin",
+      "C": "Madrid",
+      "D": "Rome"
+    },
+    "answer": "A",
+    "link": null,
+    "reward": 10
+  }
+}
+```
+
+---
+
+### Error Responses
+
+Missing question text
+
+```json
+{
+  "status": false,
+  "message": "Question text is required"
+}
+```
+
+Server error
+
+```json
+{
+  "status": false,
+  "message": "Server error"
+}
+```
+
+---
+
+# 2️⃣ Get Questions By Round
+
+Returns all questions belonging to a specific round.
+
+### Endpoint
 ```
 GET /api/question/round/:roundId
 ```
 
-### Response
+---
+
+### Success Response (200)
+
 ```json
 {
   "status": true,
@@ -258,8 +426,13 @@ GET /api/question/round/:roundId
     {
       "id": 1,
       "roundId": 1,
-      "text": "Question text",
-      "options": null,
+      "text": "What is the capital of France?",
+      "options": {
+        "A": "Paris",
+        "B": "Berlin",
+        "C": "Madrid",
+        "D": "Rome"
+      },
       "link": null,
       "reward": 10
     }
@@ -267,14 +440,125 @@ GET /api/question/round/:roundId
 }
 ```
 
-Questions remain accessible only while:
+---
 
-- currentTime ≤ endsAt
-- user not finished
+### Typical Frontend Usage
 
-Backend must revalidate time before serving.
+This endpoint is called after a user starts a round.
+
+Example:
+
+```
+GET /api/question/round/1
+```
+
+The returned questions are displayed to the participant.
 
 ---
+
+# 3️⃣ Update Question (Organizer)
+
+Updates an existing question.
+
+### Endpoint
+```
+PATCH /api/question/:id
+```
+
+### Authentication
+Organizer only.
+
+---
+
+### Request Body
+
+Any subset of these fields may be provided:
+
+```json
+{
+  "text": "Updated question text",
+  "options": {
+    "A": "Option 1",
+    "B": "Option 2"
+  },
+  "answer": "A",
+  "link": "https://example.com",
+  "reward": 20
+}
+```
+
+---
+
+### Success Response (200)
+
+```json
+{
+  "status": true,
+  "data": {
+    "id": 1,
+    "roundId": 1,
+    "text": "Updated question text",
+    "options": {
+      "A": "Option 1",
+      "B": "Option 2"
+    },
+    "answer": "A",
+    "link": "https://example.com",
+    "reward": 20
+  }
+}
+```
+
+---
+
+### Error Response
+
+```json
+{
+  "status": false,
+  "message": "Server error"
+}
+```
+
+---
+
+# 4️⃣ Delete Question (Organizer)
+
+Deletes a question permanently.
+
+### Endpoint
+```
+DELETE /api/question/:id
+```
+
+### Authentication
+Organizer only.
+
+---
+
+### Success Response (200)
+
+```json
+{
+  "status": true,
+  "message": "Question deleted"
+}
+```
+
+---
+
+### Error Response
+
+```json
+{
+  "status": false,
+  "message": "Server error"
+}
+```
+
+---
+
+
 
 # 📝 RESPONSE ROUTES
 **Base Path:** `/api/response`
@@ -314,7 +598,39 @@ If after endsAt:
 ```json
 { "message": "Round already ended" }
 ```
+---
+## Get User Responses For Round
 
+Returns all answers submitted by the authenticated user for a specific round.
+
+This endpoint is primarily used for **state recovery**, allowing the frontend
+to restore previously submitted answers when the user refreshes the page or
+reopens the round.
+
+### Endpoint
+```
+GET /api/response/:roundId/me
+```
+
+### Request
+```json
+[
+  {
+    "id": 21,
+    "questionId": 1,
+    "submittedAnswer": "A",
+    "isCorrect": true,
+    "pointsEarned": 10
+  },
+  {
+    "id": 22,
+    "questionId": 2,
+    "submittedAnswer": "C",
+    "isCorrect": false,
+    "pointsEarned": 0
+  }
+]
+```
 ---
 
 # 🏆 LEADERBOARD ROUTES
