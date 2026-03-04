@@ -782,27 +782,80 @@ Never trust client clock.
 - User finishes after endsAt → Time capped automatically
 
 ---
+# 🔐 Allowed Users Access Control
 
-# 🔐 AUTHENTICATION
+The platform restricts quiz access to a predefined list of allowed email addresses.
 
-All protected routes require:
+Only users whose email exists in the **AllowedUsers** database table are permitted
+to access the quiz system.
 
+All other users are blocked from participation.
+
+---
+
+
+# 🚦 Access Flow
+
+After a user logs in through Clerk authentication, the backend performs
+an authorization check against the whitelist.
+
+### Authentication Sequence
+
+1. User signs in using Clerk.
+2. Backend retrieves the authenticated user's email from Clerk.
+3. Backend checks if the email exists in the `AllowedUsers` table.
+4. Access decision is made based on the result.
+
+---
+
+# ✅ Allowed User Flow
+
+If the email **exists in the whitelist**:
+
+1. Backend allows the request.
+2. Backend ensures a corresponding `User` record exists.
+3. If the user does not exist yet, it is automatically created.
+4. The user is redirected to the **quiz platform**.
+
+Example backend result:
+
+```json
+{
+  "message": "Authorized"
+}
 ```
-Authorization: Bearer <Clerk Session Token>
+
+Frontend behavior:
+```
+Redirect user to quiz dashboard
 ```
 
 ---
 
-# 🚀 FINAL SYSTEM CHARACTERISTICS
+# ❌ Not Allowed User Flow
 
-- Fully automatic lifecycle
-- No manual state transitions
-- Server-enforced timing
-- Race-condition resistant
-- Refresh-safe
-- Scalable
-- Deterministic
-- Production ready
+If the email **does not exist in the whitelist**:
+
+The backend rejects the request.
+
+### Response
+
+HTTP Status: **403**
+
+```json
+{
+  "message": "Access denied. Email not allowed."
+}
+```
+
+Frontend behavior:
+```
+Redirect user to "Not Registered" page
+Display message:
+"You are not registered for this quiz event."
+```
+
+Users who are not registered **cannot access any quiz endpoints**.
 
 ---
 
