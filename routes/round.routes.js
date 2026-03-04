@@ -10,7 +10,8 @@ import {
   startRound,
   finishRound,
   createRound,
-  getAllRoundsAdmin
+  getAllRoundsAdmin,
+  getRoundStatus
 } from "../controllers/round.controller.js"
 
 import {
@@ -57,4 +58,10 @@ router.get(
   requireOrganizer,
   getAllRoundsAdmin
 )
+
+router.get(
+  "/status/:id",
+  getRoundStatus
+)
+
 export default router

@@ -7,9 +7,9 @@ export const getLeaderboard = async (req, res) => {
     const results = await prisma.roundResult.findMany({
       where: {
         finished: true,
-        round: {
-          status: "COMPLETED"
-        }
+        // round: {
+        //   status: "COMPLETED"
+        // }
       },
       include: {
         user: {

@@ -248,3 +248,34 @@ export const getAllRoundsAdmin = async (req, res) => {
     })
   }
 }
+
+export const getRoundStatus = async (req, res) => {
+  const userId = req.user.id
+  const roundId = Number(req.params.id)
+
+  try {
+    const result = await prisma.roundResult.findUnique({
+      where: {
+        userId_roundId: {
+          userId,
+          roundId
+        }
+      }
+    })
+
+    if (!result) {
+      return res.json({
+        started: false,
+        finished: false
+      })
+    }
+
+    return res.json({
+      started: true,
+      finished: result.finished
+    })
+
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" })
+  }
+}

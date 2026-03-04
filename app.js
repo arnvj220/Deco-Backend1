@@ -3,9 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 //import userRouter from './router/user.router.js';
 import roundRoutes from "./routes/round.routes.js"
-// import responseRoutes from "./routes/response.routes.js"
+import responseRoutes from "./routes/response.routes.js"
 import questionRoutes from "./routes/question.routes.js"
-// import leaderboardRoutes from "./routes/leaderboard.routes.js"
+import leaderboardRoutes from "./routes/leaderboard.routes.js"
 import authRoutes from "./routes/auth.routes.js"
 import limiter from "./middleware/ratelimiter.js"
 import morgan from 'morgan';
@@ -24,9 +24,9 @@ app.use(cors({
 }));
 
 app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
-// app.use("/api/response", responseRoutes);
+app.use("/api/response", requireAuth(), requireAllowedEmail, responseRoutes);
 app.use("/api/question", requireAuth(), requireAllowedEmail, questionRoutes);
-// app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/leaderboard", requireAuth(), requireAllowedEmail, leaderboardRoutes);
 app.use("/api/auth", requireAuth(), requireAllowedEmail, authRoutes);
 
 

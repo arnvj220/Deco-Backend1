@@ -1,11 +1,10 @@
 import { prisma } from "../lib/prisma.js";
 
 export const submitResponse = async (req, res) => {
-  const userId = req.user.id;
-  const { questionId, submittedAnswer } = req.body;
+  const userId = req.user.id
+  const { questionId, submittedAnswer } = req.body
 
   try {
-    // Get question
     const question = await prisma.question.findUnique({
       where: {
         id: Number(questionId),
@@ -13,10 +12,10 @@ export const submitResponse = async (req, res) => {
       include: {
         round: true,
       },
-    });
+    })
 
     if (!question) {
-      return res.status(404).json({ message: "Question not found" });
+      return res.status(404).json({ message: "Question not found" })
     }
 
     const now = new Date()
@@ -27,44 +26,47 @@ export const submitResponse = async (req, res) => {
       })
     }
 
-    const isCorrect = submittedAnswer === question.answer;
-    const pointsEarned = isCorrect ? question.reward : 0;
+    console.log(submittedAnswer, question.answer);
 
-    // Upsert response (because of @@unique([userId, questionId]))
+    const isCorrect = submittedAnswer === question.answer
+    const pointsEarned = isCorrect ? question.reward : 0
+
     await prisma.response.upsert({
       where: {
         userId_questionId: {
-          userId: userId,
+          userId,
           questionId: Number(questionId),
         },
       },
       update: {
-        submittedAnswer: submittedAnswer,
-        isCorrect: isCorrect,
-        pointsEarned: pointsEarned,
+        submittedAnswer,
+        isCorrect,
+        pointsEarned,
       },
       create: {
-        userId: userId,
+        userId,
         questionId: Number(questionId),
         roundId: question.roundId,
-        submittedAnswer: submittedAnswer,
-        isCorrect: isCorrect,
-        pointsEarned: pointsEarned,
+        submittedAnswer,
+        isCorrect,
+        pointsEarned,
       },
-    });
+    })
 
     return res.json({
-      message: "Saved",
-      isCorrect,
-      pointsEarned,
-    });
+      status: true,
+      message: "Answer submitted"
+    })
+
   } catch (error) {
-    return res.status(500).json({ message: "Server error" });
+    console.error("Submit response error:", error)
+    return res.status(500).json({ message: "Server error" })
   }
-};
+}
 
 export const getMyResponses = async (req, res) => {
   const userId = req.user.id;
+  console.log(req.user);
   const roundId = Number(req.params.roundId);
 
   try {

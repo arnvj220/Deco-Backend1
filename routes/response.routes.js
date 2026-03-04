@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { authMiddleware } from "../middleware/auth.middleware.js"
+
 import { validate } from "../middleware/validate.middleware.js"
 
 import {
@@ -16,15 +16,15 @@ const router = Router()
 
 router.post(
   "/",
-  authMiddleware,
-  validate(submitResponseSchema),
+  
+  validate(submitResponseSchema, "body"),
   submitResponse
 )
 
 router.get(
   "/:roundId/me",
-  authMiddleware,
-  validate(roundIdParamSchema),
+  
+  validate(roundIdParamSchema, "params"),
   getMyResponses
 )
 

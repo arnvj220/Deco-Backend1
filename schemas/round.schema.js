@@ -4,9 +4,9 @@ import { z } from "zod"
  * Reusable param validator
  */
 export const roundIdParamSchema = z.object({
-  params: z.object({
+  
     roundId: z.coerce.number().int().positive()
-  })
+  
 })
 
 /**
