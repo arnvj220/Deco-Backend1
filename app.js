@@ -18,10 +18,20 @@ dotenv.config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
-}));
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 
 app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
 app.use("/api/response", requireAuth(), requireAllowedEmail, responseRoutes);
