@@ -3,13 +3,9 @@ import { prisma } from "../lib/prisma.js"
 export const getLeaderboard = async (req, res) => {
   try {
 
-    // Fetch only finished results from COMPLETED rounds
     const results = await prisma.roundResult.findMany({
       where: {
-        finished: true,
-        // round: {
-        //   status: "COMPLETED"
-        // }
+        finished: true
       },
       include: {
         user: {
@@ -25,12 +21,13 @@ export const getLeaderboard = async (req, res) => {
 
     const leaderboardMap = {}
 
-    // Aggregate totals across all completed rounds
+    // Aggregate totals
     for (const result of results) {
 
       const userId = result.userId
 
       if (!leaderboardMap[userId]) {
+
         leaderboardMap[userId] = {
           userId: userId,
           name: result.user.name,
@@ -39,10 +36,12 @@ export const getLeaderboard = async (req, res) => {
           totalPoints: 0,
           totalTime: 0
         }
+
       }
 
       leaderboardMap[userId].totalPoints += result.totalScore ?? 0
       leaderboardMap[userId].totalTime += result.totalTime ?? 0
+
     }
 
     const leaderboard = Object.values(leaderboardMap)
@@ -55,29 +54,31 @@ export const getLeaderboard = async (req, res) => {
       }
 
       return a.totalTime - b.totalTime
+
     })
 
-    // Assign competition ranks (handle ties)
-    let currentRank = 1
+    // Assign ranks
+    if (leaderboard.length > 0) {
+      leaderboard[0].rank = 1
+    }
 
-    for (let i = 0; i < leaderboard.length; i++) {
+    for (let i = 1; i < leaderboard.length; i++) {
 
-      if (i > 0) {
+      const prev = leaderboard[i - 1]
+      const curr = leaderboard[i]
 
-        const prev = leaderboard[i - 1]
-        const curr = leaderboard[i]
+      if (
+        curr.totalPoints === prev.totalPoints &&
+        curr.totalTime === prev.totalTime
+      ) {
 
-        if (
-          curr.totalPoints === prev.totalPoints &&
-          curr.totalTime === prev.totalTime
-        ) {
-          leaderboard[i].rank = prev.rank
-        } else {
-          leaderboard[i].rank = i + 1
-        }
+        curr.rank = prev.rank
 
-      } else {
-        leaderboard[i].rank = 1
+      } 
+      else {
+
+        curr.rank = i + 1
+
       }
 
     }
@@ -87,10 +88,13 @@ export const getLeaderboard = async (req, res) => {
       data: leaderboard
     })
 
-  } catch (err) {
+  } 
+  catch (err) {
+
     res.status(500).json({
       status: false,
       message: err.message
     })
+
   }
 }
