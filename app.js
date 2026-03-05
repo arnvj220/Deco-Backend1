@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-//import userRouter from './router/user.router.js';
 import roundRoutes from "./routes/round.routes.js"
 import responseRoutes from "./routes/response.routes.js"
 import questionRoutes from "./routes/question.routes.js"

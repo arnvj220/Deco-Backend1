@@ -26,7 +26,6 @@ export const submitResponse = async (req, res) => {
       })
     }
 
-    console.log(submittedAnswer, question.answer);
 
     const isCorrect = submittedAnswer === question.answer
     const pointsEarned = isCorrect ? question.reward : 0
@@ -66,7 +65,6 @@ export const submitResponse = async (req, res) => {
 
 export const getMyResponses = async (req, res) => {
   const userId = req.user.id;
-  console.log(req.user);
   const roundId = Number(req.params.roundId);
 
   try {
