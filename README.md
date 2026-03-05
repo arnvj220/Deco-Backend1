@@ -1,6 +1,239 @@
+# Deco Backend Setup & Deployment Guide
+
+## 1. Prerequisites
+
+Make sure the following are installed on your system:
+
+-   **Node.js** (v18 or newer recommended)
+-   **npm** (comes with Node)
+-   **Git**
+-   **PostgreSQL** database (required for Prisma)
+
+Check installations:
+
+``` bash
+node -v
+npm -v
+git --version
+psql --version  # Check PostgreSQL
+```
+
+------------------------------------------------------------------------
+
+# 2. Clone the Repository
+
+``` bash
+git clone <repository-url>
+cd deco-backend
+```
+
+Example:
+
+``` bash
+git clone https://github.com/RacTCode/deco-backend.git
+cd deco-backend
+```
+
+------------------------------------------------------------------------
+
+# 3. Install Dependencies
+
+Install all required packages:
+
+``` bash
+npm install
+```
+
+------------------------------------------------------------------------
+
+# 4. Environment Variables
+
+Create a `.env` file in the project root by copying `.exampleenv`:
+
+``` bash
+cp .exampleenv .env
+```
+
+Fill in the required values in `.env` 
+
+
+- Ensure your PostgreSQL database is running and accessible
+
+------------------------------------------------------------------------
+
+
+# 5. Prisma Setup
+
+Generate Prisma client:
+
+``` bash
+npx prisma generate
+```
+
+Run migrations (for development):
+
+``` bash
+npx prisma migrate dev --name init
+```
+
+For production deployments:
+
+``` bash
+npx prisma migrate deploy
+```
+
+**Note**: The project uses PostgreSQL. Ensure your DATABASE_URL points to a valid PostgreSQL instance.
+
+------------------------------------------------------------------------
+
+# 6. Database Seeding
+
+After running migrations, seed the database with allowed users for authentication:
+
+1. Open Prisma Studio:
+   ``` bash
+   npx prisma studio
+   ```
+
+2. Navigate to the `AllowedUsers` table
+3. Add email addresses of users who should have access to the backend
+4. Set roles in the `User` table if needed (default is PARTICIPANT, ORGANIZER for admins)
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# 7. Running the Backend (Development)
+
+Start the development server:
+
+``` bash
+npm run dev
+```
+
+or if the project uses a normal start script:
+
+``` bash
+npm start
+```
+
+Typical dev server runs at:
+
+    http://localhost:5000
+
+------------------------------------------------------------------------
+
+
+# 8. Deployment (Generic VPS / Cloud)
+
+Steps:
+
+1.  SSH into your server
+2.  Clone the repository
+3.  Install dependencies
+4.  Configure environment variables
+5.  Run Prisma migrations
+6.  Start the server
+
+Example:
+
+``` bash
+git clone <repo>
+cd backend
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npm run build
+npm start
+```
+
+------------------------------------------------------------------------
+
+# 9. Troubleshooting
+
+### Prisma Client Errors
+
+Run:
+
+``` bash
+npx prisma generate
+```
+
+### Database Connection Issues
+
+Verify:
+
+-   DATABASE_URL is correct
+-   PostgreSQL server is running
+-   Correct credentials and database exists
+
+### Port Already In Use
+
+Change port in `.env`:
+
+``` env
+PORT=5001
+```
+
+------------------------------------------------------------------------
+
+# 10. Project Structure
+
+    deco-backend/
+    │
+    ├── prisma/
+    │   ├── schema.prisma
+    │   └── migrations/
+    │
+    ├── controllers/
+    │   ├── round.controller.js
+    │   ├── question.controller.js
+    │   ├── response.controller.js
+    │   └── leaderboard.controller.js
+    │
+    ├── routes/
+    │   ├── round.routes.js
+    │   ├── question.routes.js
+    │   ├── response.routes.js
+    │   └── leaderboard.routes.js
+    │
+    ├── middleware/
+    │   ├── auth.middleware.js
+    │   ├── ratelimiter.js
+    │   └── validate.middleware.js
+    │
+    ├── schemas/
+    │   ├── round.schema.js
+    │   ├── question.schema.js
+    │   ├── response.schema.js
+    │   └── leaderboard.schema.js
+    │
+    ├── lib/
+    │   └── prisma.js
+    │
+    ├── app.js
+    ├── index.js
+    ├── package.json
+    ├── .env
+    └── .exampleenv
+
+------------------------------------------------------------------------
+
+# 11. Notes
+
+-   Never commit `.env` files to version control.
+-   Use environment variables for all secrets and configuration.
+-   Always run Prisma migrations before starting the server in production.
+-   Clerk authentication requires users to be whitelisted in the `AllowedUsers` table.
+-   The backend uses role-based access: ORGANIZER for admin functions, PARTICIPANT for regular users.
+-   Rate limiting is enabled by default (100 requests per 15 minutes per IP).
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 # Backend API Documentation & Complete Event Lifecycle
 
 ---
+
 
 # 🧠 Core Architectural Principle
 
