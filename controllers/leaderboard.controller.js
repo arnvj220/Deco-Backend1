@@ -3,6 +3,21 @@ import { prisma } from "../lib/prisma.js"
 export const getLeaderboard = async (req, res) => {
   try {
 
+    // 🚨 Check if any round is still unfinished
+    const unfinishedRound = await prisma.roundResult.findFirst({
+      where: {
+        finished: false
+      }
+    })
+
+    if (unfinishedRound) {
+      return res.status(400).json({
+        status: false,
+        message: "Leaderboard not available until all rounds are finished"
+      })
+    }
+
+    // ✅ All rounds finished → proceed
     const results = await prisma.roundResult.findMany({
       where: {
         finished: true
