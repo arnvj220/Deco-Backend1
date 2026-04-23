@@ -7,6 +7,7 @@ import { validate } from "../middleware/validate.middleware.js"
 
 import {
   getActiveRound,
+  getUpcomingRound,
   startRound,
   finishRound,
   createRound,
@@ -27,6 +28,11 @@ const router = Router()
 router.get(
   "/active",
   getActiveRound
+)
+
+router.get(
+  "/upcoming",
+  getUpcomingRound
 )
 
 // Start round

@@ -2,6 +2,19 @@
 import { clerkClient } from "@clerk/express";
 import { prisma } from "../lib/prisma.js";
 
+const isRetryableDbError = (error) => {
+  const code = error?.code;
+  const driverCode = error?.meta?.driverAdapterError?.cause?.code;
+
+  return (
+    code === "P1001" ||
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    driverCode === "ECONNREFUSED" ||
+    driverCode === "ENOTFOUND"
+  );
+};
+
 export const requireAllowedEmail = async (req, res, next) => {
   try {
     const { userId } = await req.auth()
@@ -13,18 +26,18 @@ export const requireAllowedEmail = async (req, res, next) => {
     // Check whitelist in Prisma with retry logic
     let allowed = null;
     try {
-      allowed = await prisma.allowedUsers.findUnique({ where: { email } });
+      allowed = await prisma.AllowedUsers.findUnique({ where: { email } });
     } catch (dbErr) {
       console.error("Database connection error:", dbErr.code, dbErr.message);
       
       // If connection refused, try to reconnect
-      if (dbErr.code === 'ECONNREFUSED' || dbErr.code === 'ENOTFOUND') {
+      if (isRetryableDbError(dbErr)) {
         console.log("Attempting to reconnect to database...");
         // Force reconnect
         await prisma.$disconnect();
         await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
         try {
-          allowed = await prisma.allowedUsers.findUnique({ where: { email } });
+          allowed = await prisma.AllowedUsers.findUnique({ where: { email } });
         } catch (retryErr) {
           console.error("Database reconnect failed:", retryErr.message);
           return res.status(503).json({ message: "Database connection error. Please try again." });
@@ -39,15 +52,44 @@ export const requireAllowedEmail = async (req, res, next) => {
     }
 
     // Auto-create user in Prisma if needed
-    let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    let user = null;
+
+    try {
+      user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    } catch (dbErr) {
+      if (!isRetryableDbError(dbErr)) {
+        throw dbErr;
+      }
+
+      await prisma.$disconnect();
+      await new Promise(r => setTimeout(r, 1000));
+      user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    }
+
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          clerkId: userId,
-          email,
-          name: clerkUser.fullName || email,
-        },
-      });
+      try {
+        user = await prisma.user.create({
+          data: {
+            clerkId: userId,
+            email,
+            name: clerkUser.fullName || email,
+          },
+        });
+      } catch (dbErr) {
+        if (!isRetryableDbError(dbErr)) {
+          throw dbErr;
+        }
+
+        await prisma.$disconnect();
+        await new Promise(r => setTimeout(r, 1000));
+        user = await prisma.user.create({
+          data: {
+            clerkId: userId,
+            email,
+            name: clerkUser.fullName || email,
+          },
+        });
+      }
     }
 
     req.user = user;

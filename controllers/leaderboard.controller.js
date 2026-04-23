@@ -2,6 +2,24 @@ import { prisma } from "../lib/prisma.js"
 
 export const getLeaderboard = async (req, res) => {
   try {
+    const now = new Date()
+
+    // Check if all rounds have ended
+    const unfinishedRounds = await prisma.round.findMany({
+      where: {
+        endsAt: {
+          gt: now
+        }
+      }
+    })
+
+    if (unfinishedRounds.length > 0) {
+      return res.json({
+        status: true,
+        data: [],
+        message: "Leaderboard will be available once all rounds have ended."
+      })
+    }
 
     const results = await prisma.roundResult.findMany({
       where: {

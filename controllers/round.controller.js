@@ -1,5 +1,25 @@
 import { prisma } from "../lib/prisma.js"
 
+const isRetryableDbError = (error) => {
+  const code = error?.code
+  const driverCode = error?.meta?.driverAdapterError?.cause?.code
+  return code === "P1001" || code === "ECONNREFUSED" || code === "ENOTFOUND" || driverCode === "ECONNREFUSED" || driverCode === "ENOTFOUND"
+}
+
+const withDbRetry = async (operation) => {
+  try {
+    return await operation()
+  } catch (error) {
+    if (!isRetryableDbError(error)) {
+      throw error
+    }
+
+    await prisma.$disconnect()
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    return operation()
+  }
+}
+
 
 // Get currently active round (time based)
 export const getActiveRound = async (req, res) => {
@@ -7,18 +27,14 @@ export const getActiveRound = async (req, res) => {
 
     const now = new Date()
 
-    const round = await prisma.round.findFirst({
+    const round = await withDbRetry(() => prisma.round.findFirst({
       where: {
         startedAt: { lte: now },
         endsAt: { gte: now }
       }
-    })
+    }))
 
-    if (!round) {
-      return res.status(404).json({ message: "No active round" })
-    }
-
-    return res.json(round)
+    return res.json(round)  // Return null if no round
 
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
@@ -193,7 +209,7 @@ export const getAllRoundsAdmin = async (req, res) => {
 
   try {
 
-    const rounds = await prisma.round.findMany({
+    const rounds = await withDbRetry(() => prisma.round.findMany({
       include: {
         questions: {
           select: { id: true }
@@ -208,7 +224,7 @@ export const getAllRoundsAdmin = async (req, res) => {
       orderBy: {
         id: "desc"
       }
-    })
+    }))
 
     const now = new Date()
 
@@ -243,6 +259,7 @@ export const getAllRoundsAdmin = async (req, res) => {
     return res.json(formatted)
 
   } catch (error) {
+    console.error("getAllRoundsAdmin error:", error)
     return res.status(500).json({
       message: "Server error"
     })
@@ -276,6 +293,25 @@ export const getRoundStatus = async (req, res) => {
     })
 
   } catch (err) {
+    return res.status(500).json({ message: "Server error" })
+  }
+}
+
+export const getUpcomingRound = async (req, res) => {
+  try {
+    const now = new Date()
+
+    const round = await withDbRetry(() => prisma.round.findFirst({
+      where: {
+        startedAt: { gt: now }
+      },
+      orderBy: {
+        startedAt: "asc"
+      }
+    }))
+
+    return res.json(round)  // Return null if no round, instead of 404
+  } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
 }
