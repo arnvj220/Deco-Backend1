@@ -38,7 +38,6 @@ export const getLeaderboard = async (req, res) => {
       })
     }
 
-    const now = new Date()
 
     // 🚨 Block if current time is before last round ends
     if (now < lastRound.endTime) {
