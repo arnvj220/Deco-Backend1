@@ -21,6 +21,35 @@ export const getLeaderboard = async (req, res) => {
       })
     }
 
+    // ⏱️ Get the latest round end time
+    const lastRound = await prisma.round.findFirst({
+      orderBy: {
+        endTime: "desc"
+      },
+      select: {
+        endTime: true
+      }
+    })
+
+    if (!lastRound) {
+      return res.status(400).json({
+        status: false,
+        message: "No rounds found"
+      })
+    }
+
+    const now = new Date()
+
+    // 🚨 Block if current time is before last round ends
+    if (now < lastRound.endTime) {
+      return res.status(400).json({
+        status: false,
+        message: "Leaderboard not available until all rounds are completed",
+        availableAt: lastRound.endTime
+      })
+    }
+
+    // ✅ All rounds time completed → proceed
     const results = await prisma.roundResult.findMany({
       where: {
         finished: true
@@ -39,7 +68,7 @@ export const getLeaderboard = async (req, res) => {
 
     const leaderboardMap = {}
 
-    // Aggregate totals
+    // 🔁 Aggregate totals
     for (const result of results) {
 
       const userId = result.userId
@@ -64,7 +93,7 @@ export const getLeaderboard = async (req, res) => {
 
     const leaderboard = Object.values(leaderboardMap)
 
-    // Sort by points DESC, time ASC
+    // 🔽 Sort: points DESC, time ASC
     leaderboard.sort((a, b) => {
 
       if (b.totalPoints !== a.totalPoints) {
@@ -75,7 +104,7 @@ export const getLeaderboard = async (req, res) => {
 
     })
 
-    // Assign ranks
+    // 🏆 Assign ranks
     if (leaderboard.length > 0) {
       leaderboard[0].rank = 1
     }
