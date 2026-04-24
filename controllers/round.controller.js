@@ -41,9 +41,9 @@ export const getActiveRound = async (req, res) => {
     // Filter out rounds the user has already participated in
     const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
       where: { userId },
-      select: { roundId: true }
+      select: { roundId: true, finished: true }
     }))
-    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+    const completedRoundIds = new Set(userRoundResults.filter(r => r.finished).map(r => r.roundId))
 
     const availableRound = activeRounds.find(round => !completedRoundIds.has(round.id))
 
@@ -329,9 +329,9 @@ export const getUpcomingRound = async (req, res) => {
     // Filter out rounds the user has already participated in
     const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
       where: { userId },
-      select: { roundId: true }
+      select: { roundId: true, finished: true }
     }))
-    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+    const completedRoundIds = new Set(userRoundResults.filter(r => r.finished).map(r => r.roundId))
 
     // Check if there's an available active round
     const availableActiveRound = activeRounds.find(round => !completedRoundIds.has(round.id))
@@ -374,9 +374,9 @@ export const getRoundInfo = async (req, res) => {
 
     const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
       where: { userId },
-      select: { roundId: true }
+      select: { roundId: true, finished: true }
     }))
-    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+    const completedRoundIds = new Set(userRoundResults.filter(r => r.finished).map(r => r.roundId))
 
     const currentRound = activeRounds.find(round => !completedRoundIds.has(round.id)) || null
 
@@ -402,3 +402,4 @@ export const getRoundInfo = async (req, res) => {
     return res.status(500).json({ message: "Server error" })
   }
 }
+
