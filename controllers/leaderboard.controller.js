@@ -24,10 +24,10 @@ export const getLeaderboard = async (req, res) => {
     // ⏱️ Get the latest round end time
     const lastRound = await prisma.round.findFirst({
       orderBy: {
-        endTime: "desc"
+        endsAt: "desc"
       },
       select: {
-        endTime: true
+        endsAt: true
       }
     })
 
@@ -40,11 +40,11 @@ export const getLeaderboard = async (req, res) => {
 
 
     // 🚨 Block if current time is before last round ends
-    if (now < lastRound.endTime) {
+    if (now < lastRound.endsAt) {
       return res.status(400).json({
         status: false,
         message: "Leaderboard not available until all rounds are completed",
-        availableAt: lastRound.endTime
+        availableAt: lastRound.endsAt
       })
     }
 

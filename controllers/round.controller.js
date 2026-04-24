@@ -21,20 +21,33 @@ const withDbRetry = async (operation) => {
 }
 
 
-// Get currently active round (time based)
+// Get currently active round that user hasn't participated in yet
 export const getActiveRound = async (req, res) => {
   try {
-
+    const userId = req.user.id
     const now = new Date()
 
-    const round = await withDbRetry(() => prisma.round.findFirst({
+    // Get all active rounds
+    const activeRounds = await withDbRetry(() => prisma.round.findMany({
       where: {
         startedAt: { lte: now },
         endsAt: { gte: now }
+      },
+      orderBy: {
+        startedAt: "asc"
       }
     }))
 
-    return res.json(round)  // Return null if no round
+    // Filter out rounds the user has already participated in
+    const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
+      where: { userId },
+      select: { roundId: true }
+    }))
+    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+
+    const availableRound = activeRounds.find(round => !completedRoundIds.has(round.id))
+
+    return res.json(availableRound)  // Return null if no available round
 
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
@@ -299,9 +312,35 @@ export const getRoundStatus = async (req, res) => {
 
 export const getUpcomingRound = async (req, res) => {
   try {
+    const userId = req.user.id
     const now = new Date()
 
-    const round = await withDbRetry(() => prisma.round.findFirst({
+    // Get all active rounds
+    const activeRounds = await withDbRetry(() => prisma.round.findMany({
+      where: {
+        startedAt: { lte: now },
+        endsAt: { gte: now }
+      },
+      orderBy: {
+        startedAt: "asc"
+      }
+    }))
+
+    // Filter out rounds the user has already participated in
+    const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
+      where: { userId },
+      select: { roundId: true }
+    }))
+    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+
+    // Check if there's an available active round
+    const availableActiveRound = activeRounds.find(round => !completedRoundIds.has(round.id))
+    if (availableActiveRound) {
+      return res.json(availableActiveRound)
+    }
+
+    // If no available active round, get the next upcoming round
+    const nextUpcoming = await withDbRetry(() => prisma.round.findFirst({
       where: {
         startedAt: { gt: now }
       },
@@ -310,7 +349,55 @@ export const getUpcomingRound = async (req, res) => {
       }
     }))
 
-    return res.json(round)  // Return null if no round, instead of 404
+    return res.json(nextUpcoming)  // Return null if no upcoming round
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" })
+  }
+}
+
+// Get detailed round info for waiting screen (current and next round)
+export const getRoundInfo = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const now = new Date()
+
+    // Get current/next playable round (active round user hasn't done)
+    const activeRounds = await withDbRetry(() => prisma.round.findMany({
+      where: {
+        startedAt: { lte: now },
+        endsAt: { gte: now }
+      },
+      orderBy: {
+        startedAt: "asc"
+      }
+    }))
+
+    const userRoundResults = await withDbRetry(() => prisma.roundResult.findMany({
+      where: { userId },
+      select: { roundId: true }
+    }))
+    const completedRoundIds = new Set(userRoundResults.map(r => r.roundId))
+
+    const currentRound = activeRounds.find(round => !completedRoundIds.has(round.id)) || null
+
+    // Get the next round to display (upcoming round)
+    const allFutureRounds = await withDbRetry(() => prisma.round.findMany({
+      where: {
+        startedAt: { gt: now }
+      },
+      orderBy: {
+        startedAt: "asc"
+      },
+      take: 1
+    }))
+
+    const nextRound = allFutureRounds[0] || null
+
+    return res.json({
+      current: currentRound,
+      next: nextRound,
+      now: now.toISOString()
+    })
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
