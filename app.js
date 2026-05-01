@@ -9,7 +9,7 @@ import authRoutes from "./routes/auth.routes.js"
 import adminRoutes from "./routes/admin.routes.js"
 import limiter from "./middleware/ratelimiter.js"
 import morgan from 'morgan';
-import { requireAllowedEmail } from './middleware/auth.middleware.js';
+import { isUserAllowed, requireAllowedEmail } from './middleware/auth.middleware.js';
 import { requireAuth } from '@clerk/express';
 const app = express();
 dotenv.config();
@@ -45,6 +45,12 @@ app.use(limiter)
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/api/allowed", requireAuth(), async (req, res) => {
+  const { userId } = await req.auth();
+  const allowed = await isUserAllowed(userId);
+  res.json({ allowed });
+});
 
 app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
 app.use("/api/response", requireAuth(), requireAllowedEmail, responseRoutes);

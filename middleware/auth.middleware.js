@@ -29,7 +29,7 @@ export const requireAllowedEmail = async (req, res, next) => {
       allowed = await prisma.AllowedUsers.findUnique({ where: { email } });
     } catch (dbErr) {
       console.error("Database connection error:", dbErr.code, dbErr.message);
-      
+
       // If connection refused, try to reconnect
       if (isRetryableDbError(dbErr)) {
         console.log("Attempting to reconnect to database...");
@@ -46,7 +46,7 @@ export const requireAllowedEmail = async (req, res, next) => {
         throw dbErr;
       }
     }
-    
+
     if (!allowed) {
       return res.status(403).json({ message: "Access denied. Email not allowed." });
     }
@@ -109,7 +109,18 @@ export const requireOrganizer = (req, res, next) => {
   if (req.user.role !== "ORGANIZER") {
     return res.status(403).json({ message: "Only organizers allowed" });
   }
-  
+
 
   next();
+};
+
+export const isUserAllowed = async (userId) => {
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const email = clerkUser.emailAddresses[0].emailAddress;
+
+  const allowedUser = await prisma.allowedUsers.findUnique({
+    where: { email }
+  });
+
+  return !!allowedUser;
 };
