@@ -13,12 +13,13 @@ import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import limiter from "./middleware/ratelimiter.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
+import { addAllowedUser } from "./controllers/admin.controller.js";
 
 dotenv.config();
 
 const app = express();
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:3000")
+const allowedOrigins = (process.env.ALLOWED_ORIGINS)
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
@@ -63,5 +64,8 @@ app.use("/api/round",    requireAuth, roundRoutes);
 app.use("/api/response", requireAuth, responseRoutes);
 app.use("/api/question", requireAuth, questionRoutes);
 app.use("/api/admin",    requireAuth, adminRoutes);
+
+// do not need requireAuth for this
+app.post("/api/allowed", addAllowedUser);
 
 export default app;
