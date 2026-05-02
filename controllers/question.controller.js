@@ -1,16 +1,21 @@
 // controllers/question.controller.js
 import { Question } from "../models/index.js"
+import { findRoundByExternalId } from "../lib/round.utils.js"
 
 export const createQuestion = async (req, res) => {
   try {
     const { roundId, text, options, answer, link, reward } = req.body
-    console.log(roundId);
     if (!text) {
       return res.status(400).json({ status: false, message: "Question text is required" })
     }
 
+    const round = await findRoundByExternalId(roundId)
+    if (!round) {
+      return res.status(404).json({ status: false, message: "Round not found" })
+    }
+
     const question = await Question.create({
-      roundId,
+      roundId: round._id,
       text,
       options: options ?? null,
       answer,
@@ -28,8 +33,13 @@ export const getQuestionsByRound = async (req, res) => {
   try {
     const { roundId } = req.params
 
+    const round = await findRoundByExternalId(roundId)
+    if (!round) {
+      return res.status(404).json({ status: false, message: "Round not found" })
+    }
+
     // Exclude answer from participants
-    const questions = await Question.find({ roundId }, { answer: 0 }).lean()
+    const questions = await Question.find({ roundId: round._id }, { answer: 0 }).lean()
 
     res.json({ status: true, data: questions })
   } catch (err) {

@@ -1,9 +1,13 @@
 // schemas/round.schema.js
 import { z } from "zod"
-import { objectId } from "./shared.js"
+import { roundIdentifier } from "./shared.js"
 
 export const roundIdParamSchema = z.object({
-  roundId: objectId
+  roundId: roundIdentifier
+})
+
+export const roundStatusParamSchema = z.object({
+  id: roundIdentifier
 })
 
 export const startRoundSchema = roundIdParamSchema

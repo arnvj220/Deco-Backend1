@@ -19,7 +19,8 @@ import {
 import {
   startRoundSchema,
   finishRoundSchema,
-  createRoundSchema
+  createRoundSchema,
+  roundStatusParamSchema
 } from "../schemas/round.schema.js"
 import { requireOrganizer } from "../middleware/auth.middleware.js"
 
@@ -73,6 +74,7 @@ router.get(
 
 router.get(
   "/status/:id",
+  validate(roundStatusParamSchema, "params"),
   getRoundStatus
 )
 

@@ -1,5 +1,6 @@
 // controllers/round.controller.js
 import { Round, RoundResult, Response } from "../models/index.js"
+import { findRoundByExternalId, resolveRoundObjectId, attachRoundNumericId, getNextRoundNumber } from "../lib/round.utils.js"
 
 // Get active round the user hasn't completed yet
 export const getActiveRound = async (req, res) => {
@@ -19,7 +20,7 @@ export const getActiveRound = async (req, res) => {
 
     const availableRound = activeRounds.find(r => !completedIds.has(r._id.toString()))
     
-    return res.json(availableRound ?? null)
+    return res.json(attachRoundNumericId(availableRound))
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
@@ -42,13 +43,13 @@ export const getUpcomingRound = async (req, res) => {
     )
 
     const availableActive = activeRounds.find(r => !completedIds.has(r._id.toString()))
-    if (availableActive) return res.json(availableActive)
+    if (availableActive) return res.json(attachRoundNumericId(availableActive))
 
     const nextUpcoming = await Round.findOne({ startedAt: { $gt: now } })
       .sort({ startedAt: 1 })
       .lean()
 
-    return res.json(nextUpcoming ?? null)
+    return res.json(attachRoundNumericId(nextUpcoming))
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
@@ -76,7 +77,11 @@ export const getRoundInfo = async (req, res) => {
       .sort({ startedAt: 1 })
       .lean() ?? null
 
-    return res.json({ current: currentRound, next: nextRound, now: now.toISOString() })
+    return res.json({
+      current: attachRoundNumericId(currentRound),
+      next: attachRoundNumericId(nextRound),
+      now: now.toISOString(),
+    })
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
@@ -88,7 +93,7 @@ export const startRound = async (req, res) => {
   const { roundId } = req.params
 
   try {
-    const round = await Round.findById(roundId).lean()
+    const round = await findRoundByExternalId(roundId)
     if (!round) return res.status(404).json({ message: "Round not found" })
 
     const now = new Date()
@@ -96,10 +101,10 @@ export const startRound = async (req, res) => {
       return res.status(400).json({ message: "Round not active" })
     }
 
-    const existing = await RoundResult.findOne({ userId, roundId }).lean()
+    const existing = await RoundResult.findOne({ userId, roundId: round._id }).lean()
     if (existing) return res.status(400).json({ message: "Round already started" })
 
-    await RoundResult.create({ userId, roundId, startTime: now, finished: false })
+    await RoundResult.create({ userId, roundId: round._id, startTime: now, finished: false })
 
     return res.json({ message: "Round started" })
   } catch (error) {
@@ -113,13 +118,13 @@ export const finishRound = async (req, res) => {
   const { roundId } = req.params
 
   try {
-    const result = await RoundResult.findOne({ userId, roundId })
+    const round = await findRoundByExternalId(roundId)
+    if (!round) return res.status(404).json({ message: "Round not found" })
+
+    const result = await RoundResult.findOne({ userId, roundId: round._id })
     if (!result || result.finished) {
       return res.status(400).json({ message: "Invalid finish request" })
     }
-
-    const round = await Round.findById(roundId).lean()
-    if (!round) return res.status(404).json({ message: "Round not found" })
 
     const now = new Date()
     if (now < round.startedAt) return res.status(400).json({ message: "Round not started yet" })
@@ -127,7 +132,7 @@ export const finishRound = async (req, res) => {
 
     const totalTime = Math.floor((now - result.startTime) / 1000)
 
-    const responses = await Response.find({ userId, roundId }).lean()
+    const responses = await Response.find({ userId, roundId: round._id }).lean()
     const totalScore = responses.reduce((sum, r) => sum + r.pointsEarned, 0)
 
     result.endTime = now
@@ -151,12 +156,14 @@ export const createRound = async (req, res) => {
       return res.status(400).json({ message: "End time must be after start time" })
     }
 
+    const roundNumber = await getNextRoundNumber()
     const round = await Round.create({
+      roundNumber,
       startedAt: new Date(startedAt),
       endsAt: new Date(endsAt)
     })
 
-    return res.status(201).json({ message: "Round created successfully", round })
+    return res.status(201).json({ message: "Round created successfully", round: attachRoundNumericId(round.toObject()) })
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
   }
@@ -198,9 +205,12 @@ export const getAllRoundsAdmin = async (req, res) => {
       else status = "COMPLETED"
 
       const results = resultsByRound[id] ?? []
+      const numericId = round.roundNumber ?? null
 
       return {
-        id: round._id,
+        id: numericId ?? round._id.toString(),
+        roundNumber: numericId,
+        _id: round._id,
         startedAt: round.startedAt,
         endsAt: round.endsAt,
         status,
@@ -223,7 +233,10 @@ export const getRoundStatus = async (req, res) => {
   const { id: roundId } = req.params
 
   try {
-    const result = await RoundResult.findOne({ userId, roundId }).lean()
+const resolvedId = await resolveRoundObjectId(roundId)
+  if (!resolvedId) return res.status(404).json({ message: "Round not found" })
+
+  const result = await RoundResult.findOne({ userId, roundId: resolvedId }).lean()
 
     if (!result) return res.json({ started: false, finished: false })
 

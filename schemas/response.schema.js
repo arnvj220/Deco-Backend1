@@ -1,6 +1,6 @@
 // schemas/response.schema.js
 import { z } from "zod"
-import { objectId } from "./shared.js"
+import { objectId, roundIdentifier } from "./shared.js"
 
 export const submitResponseSchema = z.object({
   questionId: objectId,
@@ -8,5 +8,5 @@ export const submitResponseSchema = z.object({
 })
 
 export const roundIdParamSchema = z.object({
-  roundId: objectId
+  roundId: roundIdentifier
 })

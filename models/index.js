@@ -24,11 +24,20 @@ export const User = mongoose.model("User", userSchema);
 // ─── Round ────────────────────────────────────────────────────────────────────
 const roundSchema = new mongoose.Schema(
     {
+        roundNumber: { type: Number, required: true, unique: true, index: true },
         startedAt: { type: Date, required: true },
         endsAt: { type: Date, required: true },
     },
     { timestamps: true }
 );
+
+roundSchema.virtual('id').get(function () {
+    return this.roundNumber
+})
+
+roundSchema.set('toJSON', { virtuals: true })
+roundSchema.set('toObject', { virtuals: true })
+
 export const Round = mongoose.model("Round", roundSchema);
 
 // ─── Question ─────────────────────────────────────────────────────────────────

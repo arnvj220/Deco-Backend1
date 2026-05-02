@@ -1,22 +1,22 @@
 // schemas/question.schema.js
 import { z } from "zod"
-import { objectId } from "./shared.js"
+import { objectId, roundIdentifier } from "./shared.js"
 
 export const createQuestionSchema = z.object({
-  roundId: objectId,
+  roundId: roundIdentifier,
   text: z.string().min(1),
   options: z.array(z.string()).optional(),
   answer: z.string().min(1),
-  link: z.string().url().optional().nullable(),
-  reward: z.number().int().min(0)
+  link: z.string().optional().nullable(),
+  reward: z.coerce.number().min(0)
 })
 
 export const updateQuestionSchema = z.object({
   text: z.string().min(1).optional(),
   options: z.array(z.string()).optional(),
   answer: z.string().optional(),
-  link: z.string().url().optional().nullable(),
-  reward: z.number().int().min(0).optional()
+  link: z.string().optional().nullable(),
+  reward: z.coerce.number().min(0).optional()
 })
 
 export const questionIdParamSchema = z.object({
@@ -24,5 +24,5 @@ export const questionIdParamSchema = z.object({
 })
 
 export const roundIdParamSchema = z.object({
-  roundId: objectId
+  roundId: roundIdentifier
 })

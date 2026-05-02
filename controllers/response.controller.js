@@ -1,5 +1,6 @@
 // controllers/response.controller.js
 import { Question, Response } from "../models/index.js"
+import { findRoundByExternalId } from "../lib/round.utils.js"
 
 export const submitResponse = async (req, res) => {
   const userId = req.user._id
@@ -49,7 +50,12 @@ export const getMyResponses = async (req, res) => {
   const { roundId } = req.params
 
   try {
-    const data = await Response.find({ userId, roundId }).lean()
+    const round = await findRoundByExternalId(roundId)
+    if (!round) {
+      return res.status(404).json({ message: "Round not found" })
+    }
+
+    const data = await Response.find({ userId, roundId: round._id }).lean()
     return res.json(data)
   } catch (error) {
     return res.status(500).json({ message: "Server error" })
