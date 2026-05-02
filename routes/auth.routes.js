@@ -68,12 +68,12 @@ router.get("/callback", async (req, res) => {
 
             // Sign JWT with userId
             token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "1d" });
-            console.log("Authorized user logged in:", { email: user.email, userId: user._id });
+            
         } else {
             // User not authorized - create temporary JWT without adding to User table
             const tempPayload = { email: email.toLowerCase(), name, picture };
             token = jwt.sign(tempPayload, JWT_SECRET, { expiresIn: "1d" });
-            console.log("Unauthorized user attempted login:", { email });
+            
         }
 
         res.cookie("token", token, {
@@ -85,15 +85,11 @@ router.get("/callback", async (req, res) => {
             maxAge: SESSION_DURATION_MS,
         });
 
-        console.log("Cookie set with token:", { 
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-            maxAge: SESSION_DURATION_MS
-        });
+        
 
         res.redirect(FRONTEND_URL);
     } catch (err) {
-        console.error("OAuth callback error:", err);
+        
         res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
     }
 });

@@ -15,17 +15,17 @@ export const requireAuth = async (req, res, next) => {
   try {
     const token = req.cookies?.token;
     if (!token) {
-      console.log("Auth failed: No token in cookies. Cookies:", req.cookies);
+      
       return res.status(401).json({ message: "Authorization error: not logged in" });
     }
 
-    console.log("Token found in cookies");
+    
     let payload;
     try {
       payload = jwt.verify(token, JWT_SECRET);
-      console.log("JWT verified successfully:", { userId: payload.userId, email: payload.email });
+      
     } catch (err) {
-      console.log("JWT verification failed:", err.message);
+      
       return res.status(401).json({ message: "Authorization error: invalid or expired session" });
     }
 
@@ -37,14 +37,14 @@ export const requireAuth = async (req, res, next) => {
       // Authorized user - fetch from database
       const user = await User.findById(payload.userId).lean();
       if (!user) {
-        console.log("User not found in database for userId:", payload.userId);
+        
         return res.status(401).json({ message: "Authorization error: user not found" });
       }
-      console.log("Auth successful for authorized user:", { userId: user._id, email: user.email });
+      
       req.user = user;
     } else {
       // Unauthorized user - use temp payload data
-      console.log("Auth successful for unauthorized user:", { email: payload.email });
+      
       req.user = {
         email: payload.email,
         name: payload.name,
@@ -56,7 +56,7 @@ export const requireAuth = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err);
+    
     res.status(500).json({ message: "Authorization error" });
   }
 };

@@ -12,7 +12,7 @@ export const getActiveRound = async (req, res) => {
       startedAt: { $lte: now },
       endsAt: { $gte: now }
     }).sort({ startedAt: 1 }).lean()
-    console.log(activeRounds);
+    
     const userResults = await RoundResult.find({ userId }, { roundId: 1, finished: 1 }).lean()
     const completedIds = new Set(
       userResults.filter(r => r.finished).map(r => r.roundId.toString())

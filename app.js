@@ -23,7 +23,6 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,ht
   .map((o) => o.trim())
   .filter(Boolean);
 
-console.log("Allowed origins:", allowedOrigins);
   
 const corsOptions = {
   origin: (origin, callback) => {

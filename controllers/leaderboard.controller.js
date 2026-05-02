@@ -6,7 +6,7 @@ export const getLeaderboard = async (req, res) => {
 
     // Check if any rounds are still running
     const unfinishedRounds = await Round.find({ endsAt: { $gt: now } }).lean()
-    console.log(unfinishedRounds);
+    
     if (unfinishedRounds.length > 0) {
       const availableAt = unfinishedRounds.reduce((latest, round) => {
         if (!latest || round.endsAt > latest) return round.endsAt

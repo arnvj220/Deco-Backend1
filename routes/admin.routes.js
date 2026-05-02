@@ -1,8 +1,9 @@
 import { Router } from "express"
-import { truncateTables } from "../controllers/admin.controller.js"
+import { addAllowedUser, truncateTables } from "../controllers/admin.controller.js"
 
 const router = Router()
 
 router.post("/truncate", truncateTables)
+router.post("/allowed", addAllowedUser)
 
 export default router

@@ -13,18 +13,18 @@ const migrateRoundNumbers = async () => {
   const roundsWithoutNumber = await Round.find({ roundNumber: { $exists: false } }).sort({ _id: 1 })
 
   if (!roundsWithoutNumber.length) {
-    console.log("No rounds found that need roundNumber assignment.")
+    
     process.exit(0)
   }
 
   for (const round of roundsWithoutNumber) {
     round.roundNumber = nextRoundNumber
     await round.save()
-    console.log(`Updated round ${round._id} -> roundNumber ${nextRoundNumber}`)
+    
     nextRoundNumber += 1
   }
 
-  console.log(`Migration complete. Assigned roundNumber to ${roundsWithoutNumber.length} round(s).`)
+  
   process.exit(0)
 }
 
