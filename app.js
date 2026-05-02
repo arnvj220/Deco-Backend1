@@ -13,7 +13,6 @@ import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import limiter from "./middleware/ratelimiter.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
-import { addAllowedUser } from "./controllers/admin.controller.js";
 
 dotenv.config();
 
@@ -65,7 +64,5 @@ app.use("/api/response", requireAuth, responseRoutes);
 app.use("/api/question", requireAuth, questionRoutes);
 app.use("/api/admin",    requireAuth, adminRoutes);
 
-// do not need requireAuth for this
-app.post("/api/allowed", addAllowedUser);
 
 export default app;
