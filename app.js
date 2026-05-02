@@ -1,63 +1,68 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import roundRoutes from "./routes/round.routes.js"
-import responseRoutes from "./routes/response.routes.js"
-import questionRoutes from "./routes/question.routes.js"
-import leaderboardRoutes from "./routes/leaderboard.routes.js"
-import authRoutes from "./routes/auth.routes.js"
-import adminRoutes from "./routes/admin.routes.js"
-import limiter from "./middleware/ratelimiter.js"
-import morgan from 'morgan';
-import { isUserAllowed, requireAllowedEmail } from './middleware/auth.middleware.js';
-import { requireAuth } from '@clerk/express';
-const app = express();
+// app.js
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import morgan from "morgan";
+
+import roundRoutes from "./routes/round.routes.js";
+import responseRoutes from "./routes/response.routes.js";
+import questionRoutes from "./routes/question.routes.js";
+import leaderboardRoutes from "./routes/leaderboard.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import limiter from "./middleware/ratelimiter.js";
+import { requireAuth } from "./middleware/auth.middleware.js";
+
 dotenv.config();
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
+
+const app = express();
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
   .filter(Boolean);
 
+console.log("Allowed origins:", allowedOrigins);
+  
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-      return;
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-
-    callback(null, false);
+    
+    console.warn(`CORS blocked request from origin: ${origin}`);
+    callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
 app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    cors(corsOptions)(req, res, next);
-    return;
-  }
-
+  res.header("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") return cors(corsOptions)(req, res, next);
   next();
 });
-app.use(limiter)
-app.use(morgan('dev'));
+
+app.use(limiter);
+app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-app.get("/api/allowed", requireAuth(), async (req, res) => {
-  const { userId } = await req.auth();
-  const allowed = await isUserAllowed(userId);
-  res.json({ allowed });
-});
-
-app.use("/api/round", requireAuth(), requireAllowedEmail, roundRoutes);
-app.use("/api/response", requireAuth(), requireAllowedEmail, responseRoutes);
-app.use("/api/question", requireAuth(), requireAllowedEmail, questionRoutes);
+// ─── Public routes ────────────────────────────────────────────────────────────
+app.use("/api/auth", authRoutes);          // login, callback, logout are public
 app.use("/api/leaderboard", leaderboardRoutes);
-app.use("/api/auth", requireAuth(), requireAllowedEmail, authRoutes);
-app.use("/api/admin", requireAuth(), requireAllowedEmail, adminRoutes);
 
+// ─── Protected routes ─────────────────────────────────────────────────────────
+app.use("/api/round",    requireAuth, roundRoutes);
+app.use("/api/response", requireAuth, responseRoutes);
+app.use("/api/question", requireAuth, questionRoutes);
+app.use("/api/admin",    requireAuth, adminRoutes);
 
 export default app;

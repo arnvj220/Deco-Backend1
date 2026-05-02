@@ -1,14 +1,12 @@
+// schemas/response.schema.js
 import { z } from "zod"
+import { objectId } from "./shared.js"
 
 export const submitResponseSchema = z.object({
-  
-    questionId: z.number(),
-    submittedAnswer: z.string().min(1)
-  
+  questionId: objectId,
+  submittedAnswer: z.string().min(1)
 })
 
 export const roundIdParamSchema = z.object({
-  
-    roundId: z.string().regex(/^\d+$/)
-  
+  roundId: objectId
 })

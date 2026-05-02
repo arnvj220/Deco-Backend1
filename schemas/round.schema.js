@@ -1,30 +1,15 @@
+// schemas/round.schema.js
 import { z } from "zod"
+import { objectId } from "./shared.js"
 
-/**
- * Reusable param validator
- */
 export const roundIdParamSchema = z.object({
-  
-    roundId: z.coerce.number().int().positive()
-  
+  roundId: objectId
 })
 
-/**
- * Start Round
- */
 export const startRoundSchema = roundIdParamSchema
-
-/**
- * Finish Round
- */
 export const finishRoundSchema = roundIdParamSchema
 
-/**
- * Create Round (ADMIN)
- */
 export const createRoundSchema = z.object({
-  
-    startedAt: z.coerce.date(),
-    endsAt: z.coerce.date(),
-  
+  startedAt: z.coerce.date(),
+  endsAt: z.coerce.date()
 })

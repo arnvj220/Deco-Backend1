@@ -1,18 +1,12 @@
-import { prisma } from "../lib/prisma.js"
+import { Round, RoundResult } from "../models/index.js"
 
 export const getLeaderboard = async (req, res) => {
   try {
     const now = new Date()
 
-    // Check if all rounds have ended
-    const unfinishedRounds = await prisma.round.findMany({
-      where: {
-        endsAt: {
-          gt: now
-        }
-      }
-    })
-
+    // Check if any rounds are still running
+    const unfinishedRounds = await Round.find({ endsAt: { $gt: now } }).lean()
+    console.log(unfinishedRounds);
     if (unfinishedRounds.length > 0) {
       return res.json({
         status: true,
@@ -21,15 +15,10 @@ export const getLeaderboard = async (req, res) => {
       })
     }
 
-    // ⏱️ Get the latest round end time
-    const lastRound = await prisma.round.findFirst({
-      orderBy: {
-        endsAt: "desc"
-      },
-      select: {
-        endsAt: true
-      }
-    })
+    // Get the latest round end time
+    const lastRound = await Round.findOne({}, { endsAt: 1 })
+      .sort({ endsAt: -1 })
+      .lean()
 
     if (!lastRound) {
       return res.status(400).json({
@@ -38,8 +27,6 @@ export const getLeaderboard = async (req, res) => {
       })
     }
 
-
-    // 🚨 Block if current time is before last round ends
     if (now < lastRound.endsAt) {
       return res.status(400).json({
         status: false,
@@ -48,99 +35,56 @@ export const getLeaderboard = async (req, res) => {
       })
     }
 
-    // ✅ All rounds time completed → proceed
-    const results = await prisma.roundResult.findMany({
-      where: {
-        finished: true
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar_url: true
-          }
-        }
-      }
-    })
+    // Fetch all finished results with user info
+    const results = await RoundResult.find({ finished: true })
+      .populate("userId", "name email avatar_url")
+      .lean()
 
     const leaderboardMap = {}
 
-    // 🔁 Aggregate totals
     for (const result of results) {
+      const user = result.userId // populated
+      const uid = user._id.toString()
 
-      const userId = result.userId
-
-      if (!leaderboardMap[userId]) {
-
-        leaderboardMap[userId] = {
-          userId: userId,
-          name: result.user.name,
-          email: result.user.email,
-          avatar_url: result.user.avatar_url,
+      if (!leaderboardMap[uid]) {
+        leaderboardMap[uid] = {
+          userId: uid,
+          name: user.name,
+          email: user.email,
+          avatar_url: user.avatar_url,
           totalPoints: 0,
           totalTime: 0
         }
-
       }
 
-      leaderboardMap[userId].totalPoints += result.totalScore ?? 0
-      leaderboardMap[userId].totalTime += result.totalTime ?? 0
-
+      leaderboardMap[uid].totalPoints += result.totalScore ?? 0
+      leaderboardMap[uid].totalTime += result.totalTime ?? 0
     }
 
     const leaderboard = Object.values(leaderboardMap)
 
-    // 🔽 Sort: points DESC, time ASC
+    // Sort: points DESC, time ASC
     leaderboard.sort((a, b) => {
-
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints
-      }
-
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
       return a.totalTime - b.totalTime
-
     })
 
-    // 🏆 Assign ranks
-    if (leaderboard.length > 0) {
-      leaderboard[0].rank = 1
-    }
+    // Assign ranks (ties share the same rank)
+    if (leaderboard.length > 0) leaderboard[0].rank = 1
 
     for (let i = 1; i < leaderboard.length; i++) {
-
       const prev = leaderboard[i - 1]
       const curr = leaderboard[i]
 
-      if (
-        curr.totalPoints === prev.totalPoints &&
-        curr.totalTime === prev.totalTime
-      ) {
-
+      if (curr.totalPoints === prev.totalPoints && curr.totalTime === prev.totalTime) {
         curr.rank = prev.rank
-
-      } 
-      else {
-
+      } else {
         curr.rank = i + 1
-
       }
-
     }
 
-    res.json({
-      status: true,
-      data: leaderboard
-    })
-
-  } 
-  catch (err) {
-
-    res.status(500).json({
-      status: false,
-      message: err.message
-    })
-
+    res.json({ status: true, data: leaderboard })
+  } catch (err) {
+    res.status(500).json({ status: false, message: err.message })
   }
 }

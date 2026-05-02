@@ -1,98 +1,59 @@
 // middleware/auth.middleware.js
-import { clerkClient } from "@clerk/express";
-import { prisma } from "../lib/prisma.js";
+import jwt from "jsonwebtoken";
+import { User, AllowedUsers } from "../models/index.js";
+import { configDotenv } from "dotenv";
+configDotenv();
 
-const isRetryableDbError = (error) => {
-  const code = error?.code;
-  const driverCode = error?.meta?.driverAdapterError?.cause?.code;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-  return (
-    code === "P1001" ||
-    code === "ECONNREFUSED" ||
-    code === "ENOTFOUND" ||
-    driverCode === "ECONNREFUSED" ||
-    driverCode === "ENOTFOUND"
-  );
-};
 
-export const requireAllowedEmail = async (req, res, next) => {
+/**
+ * requireAuth — verifies the JWT cookie and attaches req.user.
+ * Handles both authorized users (with userId) and unauthorized users (with email)
+ */
+export const requireAuth = async (req, res, next) => {
   try {
-    const { userId } = await req.auth()
-    if (!userId) return res.status(401).json({ message: "Authorization error: no userId" });
+    const token = req.cookies?.token;
+    if (!token) {
+      console.log("Auth failed: No token in cookies. Cookies:", req.cookies);
+      return res.status(401).json({ message: "Authorization error: not logged in" });
+    }
 
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses[0].emailAddress;
-
-    // Check whitelist in Prisma with retry logic
-    let allowed = null;
+    console.log("Token found in cookies");
+    let payload;
     try {
-      allowed = await prisma.AllowedUsers.findUnique({ where: { email } });
-    } catch (dbErr) {
-      console.error("Database connection error:", dbErr.code, dbErr.message);
+      payload = jwt.verify(token, JWT_SECRET);
+      console.log("JWT verified successfully:", { userId: payload.userId, email: payload.email });
+    } catch (err) {
+      console.log("JWT verification failed:", err.message);
+      return res.status(401).json({ message: "Authorization error: invalid or expired session" });
+    }
 
-      // If connection refused, try to reconnect
-      if (isRetryableDbError(dbErr)) {
-        console.log("Attempting to reconnect to database...");
-        // Force reconnect
-        await prisma.$disconnect();
-        await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
-        try {
-          allowed = await prisma.AllowedUsers.findUnique({ where: { email } });
-        } catch (retryErr) {
-          console.error("Database reconnect failed:", retryErr.message);
-          return res.status(503).json({ message: "Database connection error. Please try again." });
-        }
-      } else {
-        throw dbErr;
+    // Handle two types of tokens:
+    // 1. Authorized user: { userId, ... }
+    // 2. Unauthorized user: { email, name, picture, ... }
+
+    if (payload.userId) {
+      // Authorized user - fetch from database
+      const user = await User.findById(payload.userId).lean();
+      if (!user) {
+        console.log("User not found in database for userId:", payload.userId);
+        return res.status(401).json({ message: "Authorization error: user not found" });
       }
+      console.log("Auth successful for authorized user:", { userId: user._id, email: user.email });
+      req.user = user;
+    } else {
+      // Unauthorized user - use temp payload data
+      console.log("Auth successful for unauthorized user:", { email: payload.email });
+      req.user = {
+        email: payload.email,
+        name: payload.name,
+        avatar_url: payload.picture || null,
+        role: "PARTICIPANT",
+        _id: null, // No database ID for unauthorized users
+      };
     }
 
-    if (!allowed) {
-      return res.status(403).json({ message: "Access denied. Email not allowed." });
-    }
-
-    // Auto-create user in Prisma if needed
-    let user = null;
-
-    try {
-      user = await prisma.user.findUnique({ where: { clerkId: userId } });
-    } catch (dbErr) {
-      if (!isRetryableDbError(dbErr)) {
-        throw dbErr;
-      }
-
-      await prisma.$disconnect();
-      await new Promise(r => setTimeout(r, 1000));
-      user = await prisma.user.findUnique({ where: { clerkId: userId } });
-    }
-
-    if (!user) {
-      try {
-        user = await prisma.user.create({
-          data: {
-            clerkId: userId,
-            email,
-            name: clerkUser.fullName || email,
-          },
-        });
-      } catch (dbErr) {
-        if (!isRetryableDbError(dbErr)) {
-          throw dbErr;
-        }
-
-        await prisma.$disconnect();
-        await new Promise(r => setTimeout(r, 1000));
-        user = await prisma.user.create({
-          data: {
-            clerkId: userId,
-            email,
-            name: clerkUser.fullName || email,
-          },
-        });
-      }
-    }
-
-    req.user = user;
     next();
   } catch (err) {
     console.error("Auth middleware error:", err);
@@ -100,27 +61,23 @@ export const requireAllowedEmail = async (req, res, next) => {
   }
 };
 
-// Middleware to allow only organizers
+/**
+ * requireOrganizer — must be used after requireAuth.
+ */
 export const requireOrganizer = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: "User missing" });
   }
-
   if (req.user.role !== "ORGANIZER") {
     return res.status(403).json({ message: "Only organizers allowed" });
   }
-
-
   next();
 };
 
-export const isUserAllowed = async (userId) => {
-  const clerkUser = await clerkClient.users.getUser(userId);
-  const email = clerkUser.emailAddresses[0].emailAddress;
-
-  const allowedUser = await prisma.allowedUsers.findUnique({
-    where: { email }
-  });
-
+/**
+ * isUserAllowed — checks the AllowedUsers whitelist by email.
+ */
+export const isUserAllowed = async (email) => {
+  const allowedUser = await AllowedUsers.findOne({ email: email.toLowerCase() }).lean();
   return !!allowedUser;
 };

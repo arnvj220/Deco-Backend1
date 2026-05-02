@@ -1,16 +1,17 @@
-import { prisma } from "../lib/prisma.js"
+import { Round, Question, Response, RoundResult } from "../models/index.js"
 
 export const truncateTables = async (req, res) => {
   try {
-    // Truncate tables and reset auto-increment using raw SQL
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "RoundResult" RESTART IDENTITY CASCADE')
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "Response" RESTART IDENTITY CASCADE')
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "Question" RESTART IDENTITY CASCADE')
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "Round" RESTART IDENTITY CASCADE')
+    await Promise.all([
+      RoundResult.deleteMany({}),
+      Response.deleteMany({}),
+      Question.deleteMany({}),
+      Round.deleteMany({}),
+    ])
 
     res.json({
       status: true,
-      message: "Tables truncated successfully and auto-increment reset"
+      message: "Collections truncated successfully"
     })
   } catch (err) {
     console.error("Truncate error:", err)
